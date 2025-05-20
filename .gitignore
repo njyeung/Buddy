@@ -1,0 +1,17 @@
+/backend/.env
+/.vscode/
+
+*.env
+.cache
+
+*node_modules/
+*dist/
+*build/
+*.vite/
+*.log
+
+/webview/
+
+/backend/__pycache__/
+/backend/tools/__pycache__/
+/backend/garbage/

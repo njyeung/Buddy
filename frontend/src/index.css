@@ -1,0 +1,37 @@
+@import "katex/dist/katex.min.css";
+@import "tailwindcss";
+
+@theme {
+  --color-primary-500: #1b2d48;
+  --color-primary-400: #2c456b;
+  --color-primary-300: #3c649f;
+  --color-primary-200: #4779c4;
+  --color-primary-100: #83aff0;
+
+  --color-secondary: #333333;
+}
+
+:root {
+  background-color: #1b2d48;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #18181b; /* bg-zinc-900 */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #52525b;
+  border-radius: 9999px;
+  border: 2px solid #18181b;
+}
+
+/* Optional: Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #52525b #18181b;
+}
