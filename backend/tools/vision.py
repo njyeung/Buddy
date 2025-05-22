@@ -6,10 +6,11 @@ from screeninfo import get_monitors
 import easyocr
 from tool_decorator import tool
 
-reader = easyocr.Reader(['en'], gpu=True)
+
 
 @tool("Reads what's currently on the user's screen. Use this to see what the user is looking at")
 def capture_screens(primary_monitor_only: bool):
+    reader = easyocr.Reader(['en'], gpu=True)
     result = []
 
     def extract_text(img: Image.Image):

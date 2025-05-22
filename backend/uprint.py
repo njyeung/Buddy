@@ -2,11 +2,11 @@ import json
 from enum import Enum
 
 class MessageType(str, Enum):
-    MESSAGE = "message"
+    MESSAGE = "assistant-message"
     TOOL_CALL = "tool-call"
     TOOL_RETURN = "tool-return"
     LOG = "log"
-    FUNCTION = "function"
+    FUNCTION = "assistant-function"
 
 def uprint(msg: str, msg_type=MessageType.MESSAGE):
     if msg_type not in MessageType:

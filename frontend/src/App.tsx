@@ -1,60 +1,78 @@
 import { useState, useEffect, useRef } from 'react';
 import type { OutgoingData, OutgoingDataType, IncomingData, Window as WindowInterface } from './interface';
 
-import Window from './components/window' ;
+import Window from './components/Window' ;
 
 export default function App() {
+
+  function handleToolWindow(data: IncomingData | OutgoingData) {
+
+    if (data.type === "tool-call" || data.type === "tool-return") {
+
+      // Always open the toolbox window if needed
+      setWindows((prev) => {
+        const toolboxExists = prev.some(win => win.windowType === "toolbox");
+
+        if (toolboxExists) {
+          return prev.map(win => {
+            if (win.windowType === "toolbox") {
+              const prevMessages = win.props?.messages ?? [];
+              return {
+                ...win,
+                props: {
+                  ...win.props,
+                  messages: [...prevMessages, data]
+                }
+              };
+            }
+            return win;
+          });
+        } 
+        else {
+          const nextId = prev.length > 0 ? prev[prev.length - 1].id + 1 : 1;
+          return [...prev, {
+            id: nextId,
+            windowType: "toolbox",
+            props: { messages: [data] }
+          }];
+        }
+      });
+    }
+    else if (data.type === "user-message") {
+      setWindows((prev) => prev.filter(win => win.windowType !== "toolbox"));
+    }
+  }
+
   useEffect(()=> {
     // @ts-ignore
     window.receiveData = (data: IncomingData) => {
 
       const decodedPayload = data.payload
-      // .replace(/\\n/g, '\n');
-      console.log({
-        type: data.type,
-        payload: decodedPayload
-      })
+
+      handleToolWindow(data)
 
       const event = new CustomEvent("IncomingDataEvent", { detail: {type: data.type, payload: decodedPayload} });
       window.dispatchEvent(event);
-
-      // if (data.type === "function") {
-      //   setChatWindows((prev) => [...prev, { id: Date.now() }]);
-      // }
     };
   }, [])
   
-  const sendData = (type: OutgoingDataType, data: string) => {
-    const payload: OutgoingData = {
+  const sendData = (type: OutgoingDataType, payload: string) => {
+    const data: OutgoingData = {
       type: type,
-      payload: data
+      payload: payload
     };
     
+    handleToolWindow(data)
+
     // @ts-ignore
-    window.invoke(payload);
+    window.invoke(data);
 
   };
 
   const [windows, setWindows] = useState<WindowInterface[]>([{ id: 0, windowType: "chatbox", props: {sendData}}]);
 
-  useEffect(() => {
-    // const handleKeyDown = (e: KeyboardEvent) => {
-    //   if (e.key === "w") {
-    //     setWindows((prev) => [...prev, { id: prev[prev.length-1].id + 1, windowType: "chatbox", props: {sendData}}]);
-    //   }
-    //   if (e.key === "e") {
-    //     setWindows((prev) => prev.length > 1 ? prev.slice(0, -1) : prev);
-    //   }
-    // };
-
-    // window.addEventListener("keydown", handleKeyDown);
-    // return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  
-
   return (
-    <div className="w-full h-screen relative">
+    <div className="w-full h-screen">
       <Window items={windows}></Window>
     </div>
   );
