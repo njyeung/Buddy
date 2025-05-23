@@ -7,10 +7,12 @@ import json
 import io
 from config import MAX_FUNCTION_CALL_DEPTH, OS_NAME, NOW
 import json
-from tools_state import tool_definitions, tool_functions
+from state import tool_definitions, tool_functions
 import threading
 from watcher import start_file_watcher, load_tools
-from uprint import MessageType, uprint
+from uprint import OutGoingDataType, uprint
+from storage.chat_storage import init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats
+import state
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
@@ -78,100 +80,125 @@ Capabilities:
 - Plan and carry out multi-step actions
 """
 
+def handle_tool_calls(messages, msg, chat_id):
+    times = 0
+    while msg.tool_calls:
+        if times > MAX_FUNCTION_CALL_DEPTH:
+            limit_msg = f"Max function call depth reached ({MAX_FUNCTION_CALL_DEPTH}). Returning control back to the user."
+            messages.append({"role": "tool", "content": limit_msg})
+            insert_message(chat_id, "tool", limit_msg)
+            uprint(limit_msg, OutGoingDataType.TOOL_RETURN)
+
+            messages.append({"role": "assistant", "content": "I've reached the maximum allowed number of tool calls. Requesting permission to continue."})
+            insert_message(chat_id, "assistant", "I've reached the maximum allowed number of tool calls. Requesting permission to continue.")
+            return
+
+        for call in msg.tool_calls:
+            fn_name = call.function.name
+            args = json.loads(call.function.arguments)
+            uprint(f"{fn_name}({', '.join(repr(v) for v in args.values())})", OutGoingDataType.TOOL_CALL)
+
+            result = tool_functions.get(fn_name, lambda **_: f"Tool {fn_name} not found.")(**args)
+            if not isinstance(result, str):
+                result = json.dumps(result, indent=2)
+
+            tool_msg = {"role": "tool", "tool_call_id": call.id, "content": result}
+            messages.append(tool_msg)
+            insert_message(chat_id, "assistant", f"tool-call: {fn_name}({', '.join(repr(v) for v in args.values())}), tool-return: {result}")
+            uprint(f"{fn_name}: {result}", OutGoingDataType.TOOL_RETURN)
+
+        # Follow up after tool execution
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=messages,
+            tools=tool_definitions,
+            tool_choice="auto"
+        )
+        msg = response.choices[0].message
+        messages.append(msg)
+        uprint(msg.content)
+        insert_message(chat_id, "assistant", msg.content)
+        times += 1
+
 def chat():
-    messages = [
-        {
-            "role": "system",
-            "content": system_prompt
-        }
-    ]
+    init_db()
+    state.current_chat_id = get_latest_chat_id()
+    messages = get_chat_messages(state.current_chat_id)
+        
+    if not messages:
+        system_msg = {"role": "system", "content": system_prompt}
+        messages.append(system_msg)
+        insert_message(state.current_chat_id, "system", system_prompt)
 
     while True:
-        payload = input()
-        data = json.loads(payload)
-        user_input = data[0]["payload"]
+        data = json.loads(input())
+        data = data[0]
+        type = data['type']
+        payload = data['payload']
 
-        messages.append({"role": "user", "content": user_input})
+        if type == "switch-chat":
+            # Used to create a new chat
+            if payload is None:
+                state.current_chat_id = create_chat("new chat")
+                messages = get_chat_messages(state.current_chat_id)
+                system_msg = {"role": "system", "content": system_prompt}
+                messages.append(system_msg)
+                insert_message(state.current_chat_id, "system", system_prompt)
+
+                chats = get_chats()
+                for chat in chats:
+                    chat["active"] = (chat["id"] == state.current_chat_id)
+                uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
+            # Switch to an existing chat and return all messages from that chat
+            else:
+                try:
+                    new_id = int(payload)
+                    uprint(f"Switching to chat ID {new_id}", OutGoingDataType.LOG)
+                    state.current_chat_id = new_id
+                    messages = get_chat_messages(state.current_chat_id)
+                    if not messages:
+                        system_msg = {"role": "system", "content": system_prompt}
+                        messages.append(system_msg)
+                        insert_message(state.current_chat_id, "system", system_prompt)
+                    uprint(messages, OutGoingDataType.RETURN_CHAT_MESSAGES)
+                    uprint(state.current_chat_id, OutGoingDataType.RETURN_CURRENT_CHAT_ID)
+                except ValueError:
+                    uprint(f"Invalid chat ID: {payload}", OutGoingDataType.LOG)
+            continue
+        if type == "get-all-chats":
+            chats = get_chats()
+            for chat in chats:
+                chat["active"] = (chat["id"] == state.current_chat_id)
+            uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
+            continue
+        if type == "get-current-chat-id":
+            uprint(state.current_chat_id, OutGoingDataType.RETURN_CURRENT_CHAT_ID)
+        if type == "get-chat-messages":
+            uprint(messages, OutGoingDataType.RETURN_CHAT_MESSAGES)
+        
+        if type != "user-message":
+            continue
+
+        messages.append({"role": "user", "content": payload})
+        insert_message(state.current_chat_id, "user", payload)
 
         response = client.chat.completions.create(
-            model = "gpt-4.1-mini",
-            messages = messages,
-            tools = tool_definitions,
-            tool_choice = "auto"
+            model="gpt-4.1-mini",
+            messages=messages,
+            tools=tool_definitions,
+            tool_choice="auto"
         )
 
         msg = response.choices[0].message
         messages.append(msg)
+        insert_message(state.current_chat_id, msg.role, msg.content)
 
-        # keep looping while gpt decides to call a function
-        times = 0
-        while msg.tool_calls:
-            if times > MAX_FUNCTION_CALL_DEPTH:
-                messages.append({
-                    "role": "system",
-                    "content": f"Max function call depth reached ({MAX_FUNCTION_CALL_DEPTH}). Returning control back to the user."
-                })
-                uprint(f"\n Max function chaining limit reached ({MAX_FUNCTION_CALL_DEPTH}).\n")
-
-                messages.append({
-                    "role": "assistant",
-                    "content": f"I've reached the maximum allowed number of tool calls in a row ({MAX_FUNCTION_CALL_DEPTH}). Requesting permission from user to continue."
-                })
-                break
-            times = times + 1
-
-            for call in msg.tool_calls:
-                fn_name = call.function.name
-                args = json.loads(call.function.arguments)
-                formatted_args = ", ".join(repr(v) for v in args.values())
-
-                uprint(f"{fn_name}({formatted_args})", MessageType.TOOL_CALL)
-
-                if fn_name in tool_functions:
-                    try:
-                        result = tool_functions[fn_name](**args)
-                    except Exception as e:
-                        result =  f"An error occurred while calling '{fn_name}': {type(e).__name__}: {str(e)}"
-                else:
-                    result = f"Tool {fn_name} not found. Consider calling reload_tools_runtime"
-                
-                if not isinstance(result, str):
-                    result = json.dumps(result, indent=2)
-
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": call.id,
-                    "content": result
-                })
-
-                uprint(f"{fn_name}:{result}", MessageType.TOOL_RETURN)
-
-            # Follow-up with results
-            response = client.chat.completions.create(
-                model="gpt-4.1-mini",
-                messages=messages,
-                tools = tool_definitions,
-                tool_choice = "auto"
-            )
-
-            msg = response.choices[0].message
-            messages.append(msg)
+        if msg.tool_calls:
+            handle_tool_calls(messages, msg, state.current_chat_id)
         else:
             uprint(msg.content)
 
-import time
-
-def background_announcer():
-    count = 0
-    while True:
-        time.sleep(5)
-        uprint(f"[Announcer] Ping {count}", MessageType.MESSAGE)
-        count += 1
-
 if __name__ == "__main__":
     load_tools()
-
-    watcher_thread = threading.Thread(target=lambda: start_file_watcher(load_tools), daemon=True)
-    watcher_thread.start()
-
+    threading.Thread(target=lambda: start_file_watcher(load_tools), daemon=True).start()
     chat()

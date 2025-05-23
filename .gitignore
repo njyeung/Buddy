@@ -15,3 +15,4 @@
 /backend/__pycache__/
 /backend/tools/__pycache__/
 /backend/garbage/
+/backend/storage/chat_memory.db

@@ -26,7 +26,7 @@ export default function Window({index=0, items, firstWindow=true}: {index?: numb
       animate={{height: "100%"}}
       transition={{duration: 0.3, ease: "easeOut"}}
       key={first.id}
-      className="w-full h-full flex-1 min-h-0 min-w-0 border border-l-2 border-secondary">
+      className="w-full h-full flex-1 min-h-0 min-w-0 border-l-2 border-secondary">
         {toRender(first)}
       </motion.div>
     </div>
@@ -42,7 +42,7 @@ export default function Window({index=0, items, firstWindow=true}: {index?: numb
       animate={{width: "100%"}}
       transition={{duration: 0.3, ease: "easeOut"}}
       key={first.id}
-      className="w-full h-full flex-1 min-w-0 min-h-0 border border-t-2 border-secondary">
+      className="w-full h-full flex-1 min-w-0 min-h-0 border-t-2 border-secondary">
         {toRender(first)}
       </motion.div>
     </div>
@@ -56,7 +56,7 @@ export default function Window({index=0, items, firstWindow=true}: {index?: numb
       animate={{height: "100%"}}
       transition={{duration: 0.3, ease: "easeOut"}}
       key={first.id}
-      className="w-full h-full flex-1 min-w-0 min-h-0 border border-r-2 border-secondary">
+      className="w-full h-full flex-1 min-w-0 min-h-0 border-r-2 border-secondary">
         {toRender(first)}
       </motion.div>
 
@@ -74,7 +74,7 @@ export default function Window({index=0, items, firstWindow=true}: {index?: numb
       animate={{width: "100%"}}
       transition={{duration: 0.3, ease: "easeOut"}}
       key={first.id}
-      className="w-full h-full flex-1 min-h-0 border border-b-2 border-secondary">
+      className="w-full h-full flex-1 min-h-0 border-b-2 border-secondary">
         {toRender(first)}
       </motion.div>
 

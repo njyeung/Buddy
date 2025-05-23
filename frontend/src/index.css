@@ -15,6 +15,7 @@
   background-color: #1b2d48;
 }
 
+/* Scrollbar thinning */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -30,8 +31,40 @@
   border: 2px solid #18181b;
 }
 
-/* Optional: Firefox scrollbar */
 * {
   scrollbar-width: thin;
   scrollbar-color: #52525b #18181b;
+}
+
+
+
+/* For scrolling chatnames */
+@keyframes scroll-loop {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.scroll-container {
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+
+.scroll-text-wrapper {
+  display: inline-block;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.scroll-text-wrapper.scrolling {
+  animation: scroll-loop 7s linear infinite;
+}
+
+.scroll-text {
+  display: inline-block;
+  margin-right: 2rem;
 }

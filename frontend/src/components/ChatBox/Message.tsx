@@ -108,7 +108,7 @@ export default function Message({ message }: { message: IncomingData | OutgoingD
                   const isInline = !String(className).includes("language-");
                     
                   return isInline ? ( // inline notation
-                    <code className="bg-secondary text-white px-1 p-0.5 rounded text-sm break-words">
+                    <code className="bg-secondary text-white px-1 p-0.5 rounded text-sm break-words break-all whitespace-pre-wrap">
                       {children}
                     </code>
                   ) : ( // code block

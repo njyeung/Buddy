@@ -9,6 +9,7 @@ export default function ToolMessage({ message }: { message: IncomingData }) {
     return <div>ATTEMPTED TO PASS NON-TOOLMESSAGE DATA INTO TOOLMESSAGE COMPONENT</div>
   }
 
+  const firstTimeExpand = useRef(true);
   const [expanded, setExpanded] = useState(true);
   const [height, setHeight] = useState('0px');
 
@@ -21,7 +22,9 @@ export default function ToolMessage({ message }: { message: IncomingData }) {
   }, [expanded]);
 
   useEffect(() => {
-  if (expanded && contentRef.current) {
+  if (firstTimeExpand.current == true && expanded && contentRef.current) {
+    firstTimeExpand.current = false;
+
     setHeight(`${contentRef.current.scrollHeight}px`);
 
     // Notify parent after animation
@@ -38,7 +41,7 @@ export default function ToolMessage({ message }: { message: IncomingData }) {
       type === "tool-call" ?
         <div>
           <div className="bg-secondary font-mono px-2 py-1 text-sm flex items-center justify-between">
-            <h1 className="text-primary-100">
+            <h1 className="text-primary-100 overflow-hidden whitespace-nowrap truncate">
               {type} -&gt; <span className="text-primary-200">{payload.split("(")[0]}</span> 
             </h1>
             <button
@@ -62,7 +65,7 @@ export default function ToolMessage({ message }: { message: IncomingData }) {
       type === "tool-return" ? 
         <div>
           <div className="bg-secondary font-mono px-2 py-1 text-sm flex items-center justify-between">
-            <h1 className="text-primary-100">
+            <h1 className="text-primary-100 overflow-hidden whitespace-nowrap truncate">
               {type} -&gt; <span className="text-primary-200">{payload.slice(0, payload.indexOf(":"))}</span>
             </h1>
             <button
