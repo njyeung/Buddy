@@ -15,7 +15,7 @@ class OutGoingDataType(str, Enum):
     NEW_CHAT = "new-chat" # payload: id of new chat
     RETURN_CHAT_MESSAGES = "return-chat-messages" # payload: all messages of the new chat
 
-def uprint(msg: str, msg_type=OutGoingDataType.MESSAGE):
+def uprint(msg: str, msg_type=OutGoingDataType.MESSAGE, meta=None):
     if msg == None:
         return
     
@@ -27,4 +27,10 @@ def uprint(msg: str, msg_type=OutGoingDataType.MESSAGE):
         "payload": msg
     }
     
-    print(json.dumps(payload), flush=True)
+    if meta is not None:
+        payload["meta"] = meta
+
+    try:
+        print(json.dumps(payload), flush=True)
+    except:
+        print(payload, flush=True)

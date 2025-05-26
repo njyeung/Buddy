@@ -105,7 +105,9 @@ export default function App() {
       handleReturnAllChats(data)
       handleReturnCurrentChatId(data)
 
-      const event = new CustomEvent("IncomingDataEvent", { detail: {type: data.type, payload: decodedPayload} });
+      console.log(data)
+
+      const event = new CustomEvent("IncomingDataEvent", { detail: {type: data.type, payload: decodedPayload, meta: data.meta ?? undefined } });
       window.dispatchEvent(event);
     };
   }, [])

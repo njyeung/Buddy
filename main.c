@@ -5,7 +5,6 @@
 #define WEBVIEW_WINAPI
 #include "webview/webview.h"
 
-
 // Convert UTF-8 char* to wide wchar_t* and print it
 void print_utf8(const char* utf8) {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -37,8 +36,6 @@ static void producer(const char* seq, const char *req, void *arg) {
     webview_t w = pipes->w;
     char js[1024];
 
-    print_utf8(req);
-
     // Forward to Python via stdin pipe
     DWORD written;
     WriteFile(pipes->stdinWrite, req, strlen(req), &written, NULL);
@@ -56,7 +53,7 @@ static void output(webview_t w, void *arg) {
     
     char js[32768];
     snprintf(js, sizeof(js), "receiveData(%s);", msg);
-    printf("%s", js);
+
     webview_eval(w, js);
 
     free(arg); 
@@ -68,9 +65,16 @@ DWORD WINAPI consumer_thread(LPVOID lpParam) {
     HANDLE hStdoutRead = p->stdoutRead;
     webview_t w = p->w;
     
-    char buffer[32768];
+    
+    size_t bufferSize = 1024;
+    char *buffer = malloc(bufferSize);
     size_t bufferLen = 0;
 
+    if(!buffer) {
+        fprintf(stderr, "malloc failed");
+        return 1;
+    }
+    
     char chunk[1024];
     DWORD bytesRead;
 
@@ -83,10 +87,16 @@ DWORD WINAPI consumer_thread(LPVOID lpParam) {
         chunk[bytesRead] = '\0';
 
         // Append chunk to buffer
-        if (bufferLen + bytesRead >= sizeof(buffer)) {
-            fprintf(stderr, "Buffer overflow!\n");
-            bufferLen = 0;
-            continue;
+        if (bufferLen + bytesRead + 1 >= bufferSize) {
+            size_t newSize = (bufferLen + bytesRead + 1) * 2;
+            char *newBuffer = realloc(buffer, newSize);
+            if (!newBuffer) {
+                fprintf(stderr, "Failed to allocate memory!\n");
+                free(buffer);
+                break;
+            }
+            buffer = newBuffer;
+            bufferSize = newSize;
         }
 
         memcpy(buffer + bufferLen, chunk, bytesRead);
@@ -98,6 +108,15 @@ DWORD WINAPI consumer_thread(LPVOID lpParam) {
         char *newline;
         while ((newline = strchr(lineStart, '\n')) != NULL) {
             *newline = '\0';
+
+            const char *logPrefix = "{\"type\": \"log\"";
+            if (strncmp(lineStart, logPrefix, strlen(logPrefix)) == 0) {
+                printf("[LOG] %s\n", lineStart);
+                lineStart = newline + 1;
+                continue;
+            }
+            
+
             webview_dispatch(w, output, _strdup(lineStart));
             lineStart = newline + 1;
         }
@@ -107,6 +126,8 @@ DWORD WINAPI consumer_thread(LPVOID lpParam) {
         memmove(buffer, lineStart, leftover);
         bufferLen = leftover;
     }
+
+    free(buffer);
     return 0;
 }
 

@@ -69,8 +69,10 @@ def insert_message(chat_id: int, role: str, content: str):
             chat["active"] = (chat["id"] == state.current_chat_id)
         uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
 
-def get_chat_messages(chat_id: int) -> List[Dict]:
+def get_chat_messages(chat_id: int, limit: int = 20, before_id: int = float('inf')) -> List[Dict]:
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT role, content FROM messages WHERE chat_id = ? ORDER BY id", (chat_id,))
-        return [{"role": role, "content": content} for role, content in cursor.fetchall()]
+        cursor.execute("SELECT id, role, content FROM messages WHERE chat_id = ? and id < ? ORDER BY id DESC LIMIT ?", (chat_id, before_id, limit))
+
+        results = [{"id": id, "role": role, "content": content} for id, role, content in cursor.fetchall()]
+        return results[::-1]
