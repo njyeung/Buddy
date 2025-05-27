@@ -99,7 +99,7 @@ export default function Message({ message }: { message: IncomingData | OutgoingD
                   <h6 className="font-semibold mb-2 text-primary-100">{children}</h6>
                 ),
                 strong: ({ children }) => (
-                  <strong className="font-bold block text-primary-100">
+                  <strong className="font-bold text-primary-100 inline">
                     {children}
                   </strong>
                 ),

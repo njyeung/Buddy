@@ -9,7 +9,6 @@ export default function ToolMessage({ message }: { message: IncomingData }) {
     return <div>ATTEMPTED TO PASS NON-TOOLMESSAGE DATA INTO TOOLMESSAGE COMPONENT</div>
   }
 
-  const firstTimeExpand = useRef(true);
   const [expanded, setExpanded] = useState(true);
   const [height, setHeight] = useState('0px');
 
@@ -22,19 +21,13 @@ export default function ToolMessage({ message }: { message: IncomingData }) {
   }, [expanded]);
 
   useEffect(() => {
-  if (firstTimeExpand.current == true && expanded && contentRef.current) {
-    firstTimeExpand.current = false;
-
-    setHeight(`${contentRef.current.scrollHeight}px`);
-
     // Notify parent after animation
     const timeout = setTimeout(() => {
       window.dispatchEvent(new CustomEvent("ToolboxScrollReady"));
     }, 300);
 
     return () => clearTimeout(timeout);
-  }
-}, [expanded]);
+  }, []);
 
   return <div className="text-white">
     {

@@ -5,8 +5,13 @@ export default function ToolBox({messages}: {messages: IncomingData[]}) {
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
+  // useEffect(() => {
+  //   bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  // }, [messages]);
+
   useEffect(() => {
     const scrollToBottom = () => {
+      console.log("SCROLL TO BOTTOM")
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 

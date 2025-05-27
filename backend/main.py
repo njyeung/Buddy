@@ -92,41 +92,57 @@ def summarize_messages(client: OpenAI, chat_id: int):
     # Most recent X messages                        ]
     # RAG messages (if applicable)
 
-    def normalize_message(msg):
-        # filter out system messages and tool returns
-        if msg["role"] == "system" or msg["role"] == "tool":
-            return None
-        
-        # messages retreived from the DB
-        if isinstance(msg, dict):
-            return msg
-        
-        # messages in the form of ChatCompletionMessage objects
-        
-        # filter out of its an assistant calling a function (contents are none)
-        if msg.content is None:
-            return None
-    
-        return {
-            "role": msg.role,
-            "content": msg.content,
-        }
-    
-    normalized_messages = []
-    for m in state.messages:
-        norm = normalize_message(m)
-        if norm:
-            normalized_messages.append(norm)
 
-    non_system = [m for m in normalized_messages]
+    # Filters out tool calls and tool returns
+    def normalize_for_summary(msg):
+        # If it's a dict (e.g., from DB), access like a dict
+        if isinstance(msg, dict):
+            if msg["role"] == "system" or msg["role"] == "tool" or msg["content"] == None:
+                return None
+            return msg
+
+        # If it's a ChatCompletionMessage object (from OpenAI API)
+        if hasattr(msg, "role"):
+            if msg.role == "system" or msg.role == "tool" or msg.content == None:
+                return None
+            return {
+                "role": msg.role,
+                "content": msg.content,
+            }
+
+        return None
     
-    to_summarize = non_system[:-NUM_RECENT_MESSAGES_TO_KEEP]
-    recent = non_system[-NUM_RECENT_MESSAGES_TO_KEEP:]
+    def normalize_for_recent(msg):
+        # If it's a dict (e.g., from DB), access like a dict
+        if isinstance(msg, dict):
+            if msg["role"] == "system":
+                return None
+            return msg
+
+        # If it's a ChatCompletionMessage object (from OpenAI API)
+        if hasattr(msg, "role"):
+            if msg.role == "system":
+                return None
+            return msg
+        return None
+
+    normalized_messages = [norm for m in state.messages if (norm := normalize_for_summary(m))]
+    
+    to_summarize = normalized_messages[:-NUM_RECENT_MESSAGES_TO_KEEP]
+
+    recent = [
+        norm for m in state.messages[-NUM_RECENT_MESSAGES_TO_KEEP:] 
+        if (norm := normalize_for_recent(m))
+    ]
+
+    # Edge case where the window breaks assistant tool call and tool return
+    if recent and recent[0]["role"] == "tool":
+        recent.pop(0)
 
     # Count characters
     char_count = sum(len(m["content"]) for m in to_summarize)
     if char_count < SUMMARY_TRIGGER_CHAR_COUNT:
-        # uprint("Conversation not long enough", OutGoingDataType.LOG)
+        uprint("Conversation not long enough", OutGoingDataType.LOG)
         return state.messages  # Sliding window of conversation is too short to be summarized
 
     previous_summary = next((m for m in reversed(normalized_messages) 
@@ -134,38 +150,64 @@ def summarize_messages(client: OpenAI, chat_id: int):
         None
     )
 
-    summarization_prompt = [
-        {"role": "system", "content": """You are summarizing a conversation between a user and an assistant. Your goal is to capture key context that will help the assistant continue the conversation intelligently in the future.
+    extra_instruction = (
+        "There is a previous summary, marked with [SUMMARY OF PREVIOUS CONTEXT]. Prioritize carrying forward its relevant information, especially anything the user has not contradicted or corrected."
+        if previous_summary else ""
+    )
 
-        Please extract and clearly summarize:
 
-        1. Any long-term goals the user mentions
-        2. Important facts, plans, or information shared by the user
-        3. Decisions or conclusions reached
-        4. Clarifications, corrections, or preferences the user expresses
-        5. Useful assistant knowledge that may apply again later
+    prompt = [
+        {"role": "system", "content": f"""You are a summarization assistant. Your task is to distill a conversation between a user and an assistant into a compact summary that preserves key context for future reasoning.
+
+        This summary will be used to:
+        - Give the assistant memory of important context from earlier in the conversation
+        - Supplement retrieval-augmented generation (RAG) results when available
+        - Complement the user's global profile, which contains persistent traits, preferences, and long-term goals across all chats
+        
+        When summarizing, focus on:
+        1. Decisions, plans, or tasks mentioned by the user
+        2. Corrections, clarifications, or preferences relevant to the current session
+        3. Technical details or assistant actions worth recalling in future steps
          
-        Keep the summary under 150 words. Use bullet points or short, clear sentences.
+        {extra_instruction}
+        
+        Write clearly and concisely, using bullet points or short sentences. Limit the summary to 200 words.
         """}
     ]
 
     # If previous summary exists, inject it as well
     if previous_summary:
-        summarization_prompt.append({"role": "assistant", "content": previous_summary["content"]})
+        prompt.append({"role": "user", "content": previous_summary["content"]})
 
-    # now add the rest of the messages to summarize
-    summarization_prompt.extend(to_summarize)
-
+    # The section of the conversation to summarize
+    conversation_text = ""
+    for m in to_summarize:
+        role = m["role"].capitalize()
+        conversation_text += f"{role}: {m['content'].strip()}\n\n"
+    
+    # Add onto prompt
+    if previous_summary:
+        prompt.append({
+        "role": "user",
+        "content": f"Here are the new messages since the previous summary. Please update and merge with the above summary: \n\n{conversation_text}"
+        })
+    else:
+        prompt.append({
+            "role": "user",
+            "content": f"Here is the full conversation so far. Please summarize it: \n\n{conversation_text}"
+        })
+    
     response = client.chat.completions.create(
-        model="gpt-4.1-nano",
-        messages=summarization_prompt
+        model="gpt-4.1-mini",
+        messages=prompt
     )
 
     summary = response.choices[0].message.content
 
     # Replace old messages with a summary
-    summary_msg = {"role": "system", "content": f"[Summary of previous context]: {summary}"}
+    summary_msg = {"role": "system", "content": f"[SUMMARY OF PREVIOUS CONTEXT]: {summary}"}
 
+    # uprint(f"[CONTEXT WINDOW]: {[state.messages[0], summary_msg] + recent}" )
     return [state.messages[0], summary_msg] + recent
 
 
@@ -176,14 +218,24 @@ def handle_tool_calls(msg, chat_id):
         if times > MAX_FUNCTION_CALL_DEPTH:
             limit_msg = f"Max function call depth reached ({MAX_FUNCTION_CALL_DEPTH}). Returning control back to the user."
             
-            state.messages.append({"role": "tool", "tool_call_id": call.id, "content": limit_msg})
-            insert_message(chat_id, "tool", limit_msg)
+            # Add tool responses for each pending call
+            for call in msg.tool_calls:
+                tool_response = {
+                    "role": "tool",
+                    "tool_call_id": call.id,
+                    "content": limit_msg
+                }
+                state.messages.append(tool_response)
+                insert_message(chat_id, "tool", limit_msg)
+                uprint(limit_msg, OutGoingDataType.TOOL_RETURN)
 
-            uprint(limit_msg, OutGoingDataType.TOOL_RETURN)
-
-            state.messages.append({"role": "assistant", "content": "I've reached the maximum allowed number of tool calls. Requesting permission to continue."})
-            insert_message(chat_id, "assistant", "I've reached the maximum allowed number of tool calls. Requesting permission to continue.")
-            uprint("I've reached the maximum allowed number of tool calls. Requesting permission to continue.")
+            assistant_msg = {
+                "role": "assistant",
+                "content": "I've reached the maximum allowed number of tool calls. Requesting permission to continue."
+            }
+            state.messages.append(assistant_msg)
+            insert_message(chat_id, "assistant", assistant_msg["content"])
+            uprint(assistant_msg["content"])
 
             return
 
@@ -235,8 +287,13 @@ def chat():
                 for chat in chats:
                     chat["active"] = (chat["id"] == state.current_chat_id)
                 
+                # Return new state of chats
                 uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
                 uprint(state.current_chat_id, OutGoingDataType.RETURN_CURRENT_CHAT_ID)
+                # Empty thread (except for system msg), but forces an update on the frontend
+                mes = get_chat_messages(state.current_chat_id, 10)
+                uprint(mes, OutGoingDataType.RETURN_CHAT_MESSAGES, meta={"paginated": False})
+
             # Else, switch to an existing chat and return all messages from that chat
             else:
                 try:
@@ -278,7 +335,7 @@ def chat():
                     isPaginated = True
             except Exception:
                 pass
-            
+
             m = get_chat_messages(state.current_chat_id, limit, before_id)
             uprint(m, OutGoingDataType.RETURN_CHAT_MESSAGES, meta={"paginated": isPaginated})
 
@@ -320,7 +377,7 @@ if __name__ == "__main__":
     # If there are no chats, this creates a default chat and returns its ID
     state.current_chat_id = get_latest_chat_id()
     # Get the messages from that chat, if there are no messages, we need to append the initial system message 
-    state.messages = get_chat_messages(state.current_chat_id)
+    state.messages = get_chat_messages(state.current_chat_id, 99999, float("inf"))
     if not state.messages:
         system_msg = {"role": "system", "content": system_prompt}
         state.messages.append(system_msg)
