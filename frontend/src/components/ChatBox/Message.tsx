@@ -114,7 +114,7 @@ export default function Message({ message }: { message: IncomingData | OutgoingD
                   ) : ( // code block
                     <pre className="mb-4">
                       <div className="bg-secondary flex items-center justify-between font-mono px-2 py-1 text-sm">
-                        <h1 className="text-primary-100">{className?.split("language-")}</h1>
+                        <h5 className="text-primary-100">{className?.split("language-")}</h5>
                         <button
                           onClick={() => {
                             if(copyState === "⧉ Copy") {
