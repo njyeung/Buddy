@@ -189,7 +189,7 @@ This hybrid system balances transparency and automation: users can manually edit
 
 To manage context length and token usage efficiently, Buddy employs a sliding window mechanism that periodically summarizes earlier parts of a conversation. The overall context structure follows this format:
 
-<img src="./diagram-1.png" alt="Context Window" width="400"/>
+<img src="./diagram-1.png" alt="Context Window" width="300"/>
 
 Recent X messages (e) — configurable via `NUM_RECENT_MESSAGES_TO_KEEP` in [`config.py`](./backend/config.py) (default: 7) — are always preserved to maintain the most up-to-date context.
 
