@@ -21,7 +21,7 @@ Learning project build upon the GPT api
       # line 139
       webview_navigate(w, "http://localhost:5173");
 ```
-   * Or point towards built contents
+   * Or point towards built contents:
       - If you’ve run npm run build, update main.c to point to the built bundle instead (i.e. a local file path), and rebuild the bridge executable (see 4).
 **3. Install python libraries**
 **4. Run the executable to launch the app**
