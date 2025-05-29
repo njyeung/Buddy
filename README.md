@@ -205,7 +205,7 @@ Tools extend the assistant’s capabilities beyond conversation. For example, Bu
 * Execute that code
 * And return the result — all without being prompted at each step
 
-> 💡 This setup works especially well for Leetcode-style problems (though that’s cheating). It’s even more useful for everyday tasks like scanning a menu or playing a song that looks interesting.
+> 💡 The above works exceptionally well for leetcode-style problems, but that’s cheating. I find much more useful occasions such as quickly scanning a long menu for a food I like, or playing a song thats similar to the one that’s on my screen
 
 This autonomy is encouraged: Buddy is explicitly prompted to chain tool calls and act independently when pursuing a goal. However, long chains can increase hallucination or runtime risks (e.g. bot blockers during `web_fetch_page()`). To manage this, you can set the `MAX_FUNCTION_CALL_DEPTH` in [`config.py`](./backend/config.py) to limit how far Buddy can go before returning control.
 
@@ -213,7 +213,7 @@ This autonomy is encouraged: Buddy is explicitly prompted to chain tool calls an
 
 ### Basic Built-in Tools
 
-I've experimented with basic tools like `read_file()` and `write_file()`, and more playful features in:
+I’ve experimented with a few basic tools, such as read_file() and write_file(), as well as some more playful features such as:
 
 * [`spotify.py`](./backend/tools/spotify.py): various Spotify API tools
 * [`search.py`](./backend/tools/search.py): `web_search()` and `web_fetch_page()`
@@ -229,14 +229,10 @@ To define a new tool, create a new file in `/backend/tools` or add to an existin
 def func(param1: type1, param2: type2, ...):
     return [ return_value ]
 ```
-
-**Guidelines:**
-
 * The function name becomes the tool’s identifier within the API.
 * The description explains the tool’s purpose to the LLM.
 * All parameters should be type-annotated for proper OpenAI schema generation (default is string).
 * The return value is passed to GPT in the `content` field of a tool message:
-
 ```json
 {
   "role": "tool",
@@ -244,7 +240,6 @@ def func(param1: type1, param2: type2, ...):
   "content": return_value
 }
 ```
-
 If you return a custom object, make sure it's formatted clearly for the LLM to process.
 
 ---
