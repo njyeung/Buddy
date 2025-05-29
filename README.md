@@ -15,8 +15,7 @@ Learning project build upon the GPT api
 * Link up renaming and deleting chats
 * Give buddy a personality
 * Text to speech and voice recognition
-* Shell command pass-through
-* Intercept user shell commands such as cd and ls and exec them in the shell. Return the result back into the chat.
+* Shell command pass-through; Intercept user shell commands such as cd and ls and exec them in the shell. Return the result back into the chat.
   * { type: “user-message”, payload: “what’s the weather today?” } <- passed through to python backend
   * { type: “user-message”, payload: “cd /home” } <- captured by C bridge 
   * Implement PTY within the C bridge. This gives us a persistent long-lived shell for each OS. This is fundamentally how electron apps like VSCode implement the terminal. 
