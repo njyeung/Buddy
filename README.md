@@ -83,12 +83,34 @@ See: [https://github.com/webview/webview](https://github.com/webview/webview)
 ./main.c
 ```
 
-> For Windows, I made a Makefile to clean, configure, build, and copy the binary into the project root as `Buddy.exe`.
-> For macOS or Linux… good luck 😅
+> I made a Makefile to clean, configure, build, and copy the binary into the project root as `Buddy.exe`.
 
 ```bash
 Run “make”
 ```
 
-Let me know when you’re ready to move on to the next section!
+---
+
+### (Optional) Preload API keys
+
+Buddy’s backend will automatically prompt you for API keys when needed—so you don’t have to configure everything up front. For example, if you use the Spotify tool and don’t have credentials yet, Buddy will ask and save them for future use.
+
+However, if you'd like to set things up manually ahead of time:
+
+* Create a `.env` file in `/backend/`
+
+* Add your OpenAI API key:
+
+  ```env
+  OPENAI=your-openai-api-key
+  ```
+
+* As well as keys for any tools you plan to use (see **Tools** below for an example on how to create your own tools):
+
+  ```env
+  SERPAPI_API_KEY=your-serpapi-key
+  SPOTIFY_CLIENT_ID=your-spotify-client-id
+  MY_EXAMPLE_TOOL_KEY=your-tool-key
+  # ...etc
+  ```
 
