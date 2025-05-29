@@ -190,3 +190,79 @@ As noted earlier, **RAG messages** (f) are ephemeral — they are injected just-
 **The sliding window sits one level higher in granularity** than the recent messages and RAG snippets — it distills broader conversational context. However, it remains **below the user profile system prompt**, which contains long-term, cross-chat knowledge.
 
 These summarized threads — system prompt, user profile, dynamic summary, and recent messages — are stored in the SQL database and automatically reloaded when the user returns to a chat. This lets the assistant resume where it left off and maintain continuity.
+
+---
+
+## Tools
+
+Taking advantage of GPT’s tool use capability, tools in Buddy are modular functions designed to extend the assistant’s capabilities. All tool definitions are located in the `/backend/tools` directory and are automatically loaded into the API at runtime.
+
+Tools extend the assistant’s capabilities beyond conversation. For example, Buddy can:
+
+* Analyze a puzzle on your screen
+* Decide to generate Python code to solve it
+* Generate test cases
+* Execute that code
+* And return the result — all without being prompted at each step
+
+> 💡 This setup works especially well for Leetcode-style problems (though that’s cheating). It’s even more useful for everyday tasks like scanning a menu or playing a song that looks interesting.
+
+This autonomy is encouraged: Buddy is explicitly prompted to chain tool calls and act independently when pursuing a goal. However, long chains can increase hallucination or runtime risks (e.g. bot blockers during `web_fetch_page()`). To manage this, you can set the `MAX_FUNCTION_CALL_DEPTH` in [`config.py`](./backend/config.py) to limit how far Buddy can go before returning control.
+
+---
+
+### Basic Built-in Tools
+
+I've experimented with basic tools like `read_file()` and `write_file()`, and more playful features in:
+
+* [`spotify.py`](./backend/tools/spotify.py): various Spotify API tools
+* [`search.py`](./backend/tools/search.py): `web_search()` and `web_fetch_page()`
+
+---
+
+### Creating Your Own Tool
+
+To define a new tool, create a new file in `/backend/tools` or add to an existing one. Then write your function and decorate it with `@tool`, like so:
+
+```python
+@tool("description of what this tool does")
+def func(param1: type1, param2: type2, ...):
+    return [ return_value ]
+```
+
+**Guidelines:**
+
+* The function name becomes the tool’s identifier within the API.
+* The description explains the tool’s purpose to the LLM.
+* All parameters should be type-annotated for proper OpenAI schema generation (default is string).
+* The return value is passed to GPT in the `content` field of a tool message:
+
+```json
+{
+  "role": "tool",
+  "tool_call_id": call.id,
+  "content": return_value
+}
+```
+
+If you return a custom object, make sure it's formatted clearly for the LLM to process.
+
+---
+
+### Live Reloading
+
+Buddy watches `/backend/tools` via `watchdog.py`. The main process (`main.py`) reloads tools dynamically on any change—no restart needed. New or modified tools are available in the next API call.
+
+---
+
+### Disabling Tools
+
+To disable a tool, simply comment out the `@tool()` decorator in its definition.
+
+---
+
+### Adding Requirements
+
+If your tool depends on a library, just add it to `requirements.txt`.
+
+---
