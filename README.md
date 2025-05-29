@@ -1,4 +1,5 @@
 # Buddy
+Learning project build upon the GPT api
 
 ## Getting started
 
