@@ -261,3 +261,22 @@ To disable a tool, simply comment out the `@tool()` decorator in its definition.
 If your tool depends on a library, just add it to `requirements.txt`.
 
 ---
+
+## Learning outcomes
+
+At one point I decided that the greatest UI to ever exist (the cli) was not enough, and I needed to ruin this project with some frontend-facing react slop. Instead of using Electron or spinning up a flask server for the python process to connect the backend and react frontend, I wanted to experiment with something more lightweight and unconventional. I chose to use Webview, a minimal C library that embeds web UIs in native apps without a full browser stack.
+
+To enable communication between the Python and React layers, I wrote a small C layer that uses platform-specific code for Windows and Unix systems (piping and threads). This bridge handles:
+
+* Standard output redirection from the Python process into the React app.
+
+* Standard input piping from the React app back into the Python process.
+
+* Message filtering, such as detecting MESSAGE.LOG-type outputs and printing them for debugging.
+
+I know, this could’ve all been avoided if I used web sockets. Even though it wasn’t the “easy way out”, I wanted to apply what I learned from my classes about low-level IPC in a personal project that I did. Surprisingly, this decision eventually became one of my favorite unique parts of Buddy. It was an addition of a fun, non-traditional, off-the-beaten-path challenge to this learning project.
+
+Inspired by the behavior of tiling window managers, the frontend employs a recursive Window component that builds a tiled layout in a similar fashion. We start with the chat window, reminiscent of a standard cli interface, but as the LLM opens or closes windows, the UI dynamically splits and adapts, creating a visually engaging, and albeit very annoying, user-LLM interaction. Even then, this ended up being one of the most visually interesting and satisfying parts of the UI.
+
+As a frontend-leaning developer, hearing about the concept of recursive components for the first time (not just in React but in Angular and beyond!) genuinely excited me. I was itching to use it, even if this project didn’t necessarily need it. Actually, this project definitely didn’t need it. It’s more of “eye candy” than a practical feature, and nowhere near as useful as a true tiling window manager.
+
