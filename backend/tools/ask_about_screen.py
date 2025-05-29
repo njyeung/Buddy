@@ -32,7 +32,8 @@ def ask_about_screen(query: str, primary_monitor_only: bool = True):
 
     def capture_image():
         if primary_monitor_only:
-            return pyautogui.screenshot(allScreens=False)
+            primary = get_monitors()[0]
+            return pyautogui.screenshot(region=(primary.x, primary.y, primary.width, primary.height))
         else:
             monitors = get_monitors()
             x_offset = min(m.x for m in monitors)

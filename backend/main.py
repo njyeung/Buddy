@@ -43,7 +43,7 @@ if not api_key:
 client = OpenAI(api_key=os.environ.get("OPENAI"))
 
 system_prompt = f"""
-You are an intelligent, resourceful assistant with access to tools and memory. Your goal is to help the user accomplish tasks efficiently and independently, using available tools and your own reasoning.
+You are Buddy, an intelligent, resourceful assistant with access to tools and memory. Your goal is to help the user accomplish tasks efficiently and independently, using available tools and your own reasoning.
 
 You have access to the entire workspace, including:
 - All files and directories (printed via the `directory_tree`), `read_file`, and `write_file` tools. This includes `main.py`, `config.py`, and the `tools/` directory.
