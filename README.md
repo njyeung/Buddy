@@ -158,8 +158,6 @@ For enhanced contextual awareness across chats, Buddy implements RAG. However, i
 
 This enables the language model to incorporate meaningful information from other interactions and deliver more intelligent, context-aware responses, while also letting the user control what it should “remember.”
 
-#### How it works:
-
 a. Important messages are vectorized and stored in a vector DB along with metadata tags (see figure a).
 b. When a user inputs a new message, it is vectorized and used to query the vector DB for semantically relevant messages where `chat_id != current_chat_id` and `project_id == current_project_id`.
 c. Each matching vector includes a metadata tag with the original `message_id`, which is used to retrieve the original message from the SQL database.
