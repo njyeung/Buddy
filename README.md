@@ -5,10 +5,12 @@ Learning project build upon the GPT api
 * RAG and vector db
 * User profile, since this is distilled asynchronously, we can try using a local model
 * Projects table (collection of chats, allow scoped RAG on chats inside a project in config.py)
-* Write UNIX C piping for the bridge, rn it’s just windows code 
+* ~~Write UNIX C piping for the bridge, rn it’s just windows code~~
 * Automatic prompting for api keys broken ever since I added frontend
 * Add webview as submodule in git
 * Frontend resizable windows
+  * This is somehow harder than it looks.
+  * Stumped llm count: (2) ~~o4-mini-high~~~ ~~Sonnet 4~~
 * write_file tool should open up a text editor for the user
 * Link up renaming and deleting chats
 * Give buddy a personality
