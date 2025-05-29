@@ -10,7 +10,7 @@ Learning project build upon the GPT api
 * Add webview as submodule in git
 * Frontend resizable windows
   * This is somehow harder than it looks.
-  * Stumped llm count: (2) ~~o4-mini-high~~~ ~~Sonnet 4~~
+  * Stumped llm count: (2) ~~o4-mini-high~~ ~~Sonnet 4~~
 * write_file tool should open up a text editor for the user
 * Link up renaming and deleting chats
 * Give buddy a personality
