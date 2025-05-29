@@ -116,6 +116,8 @@ However, if you'd like to set things up manually ahead of time:
 
 ---
 
+
+
 ## Concepts of Projects, Chats, Messages, RAGs, Sliding Window, and User Profile
 
 ### 1. Persistent Chat History
