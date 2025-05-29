@@ -146,7 +146,7 @@ All messages are stored in an SQL database, structured around a `projects` table
 
 In addition, projects help users organize related chats in a single folder.
 
-![ER diagram of project/chat/message/vector schema]()
+![./diagram-2]()
 *Figure a*
 
 ---
