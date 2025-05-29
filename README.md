@@ -54,10 +54,10 @@ pip install -r requirements.txt
   `Buddy.exe`
 
 * **For macOS:**
-  *(Not done yet, I need to write that ;-;)*
+  `./Buddy`
 
 * **For Linux:**
-  *(HELP)*
+  `./Buddy`
 
 ---
 
@@ -89,8 +89,6 @@ See: [https://github.com/webview/webview](https://github.com/webview/webview)
 ```bash
 Run “make”
 ```
-
----
 
 Let me know when you’re ready to move on to the next section!
 
