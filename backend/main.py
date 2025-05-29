@@ -5,7 +5,7 @@ import sys
 import os
 import json
 import io
-from config import MAX_FUNCTION_CALL_DEPTH, NUM_RECENT_MESSAGES_TO_KEEP, OS_NAME, NOW, SUMMARY_TRIGGER_CHAR_COUNT
+from config import MASTER_MODEL, MAX_FUNCTION_CALL_DEPTH, NUM_RECENT_MESSAGES_TO_KEEP, OS_NAME, NOW, SLAVE_MODEL, SUMMARY_TRIGGER_CHAR_COUNT
 import json
 from state import tool_definitions, tool_functions
 import threading
@@ -198,7 +198,7 @@ def summarize_messages(client: OpenAI, chat_id: int):
         })
     
     response = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model=SLAVE_MODEL,
         messages=prompt
     )
 
@@ -255,7 +255,7 @@ def handle_tool_calls(msg, chat_id):
 
         # Follow up after tool execution
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model=MASTER_MODEL,
             messages=state.messages,
             tools=tool_definitions,
             tool_choice="auto"
@@ -350,7 +350,7 @@ def chat():
         state.messages = summarize_messages(client, state.current_chat_id)
 
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model=MASTER_MODEL,
             messages=state.messages,
             tools=tool_definitions,
             tool_choice="auto"

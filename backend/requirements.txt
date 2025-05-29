@@ -1,0 +1,13 @@
+APScheduler==3.11.0
+beautifulsoup4==4.13.4
+dateparser==1.2.1
+google_search_results==2.4.2
+openai==1.82.0
+Pillow==11.2.1
+psutil==7.0.0
+pyautogui==0.9.54
+python-dotenv==1.1.0
+Requests==2.32.3
+screeninfo==0.8.1
+spotipy==2.25.1
+watchdog==6.0.0

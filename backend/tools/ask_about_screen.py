@@ -5,6 +5,7 @@ from PIL import Image
 from openai import OpenAI
 import pyautogui
 from screeninfo import get_monitors
+from config import MASTER_MODEL
 from tool_decorator import tool
 
 client = OpenAI(api_key=os.environ.get("OPENAI"))
@@ -69,7 +70,7 @@ def ask_about_screen(query: str, primary_monitor_only: bool = True):
         base64_img, mime = encode_image_base64(image_path)
 
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model=MASTER_MODEL,
             messages=[
                 {
                     "role": "system",
