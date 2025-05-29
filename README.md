@@ -146,7 +146,7 @@ All messages are stored in an SQL database, structured around a `projects` table
 
 In addition, projects help users organize related chats in a single folder.
 
-![./diagram-2]()
+![ER Diagram](./diagram-2.png)
 *Figure a*
 
 ---
@@ -188,14 +188,8 @@ This hybrid system balances transparency and automation: users can manually edit
 
 To manage context length and token usage efficiently, Buddy employs a sliding window mechanism that periodically summarizes earlier parts of a conversation. The overall context structure follows this format:
 
-```
-a) Initial system prompt
-b) User profile         # Manually editable by the user
-c) Dynamic summary      # Unique per chat
-d) Earlier messages     # To be summarized in sliding window
-e) Most recent X messages  # Always kept intact
-f) RAG messages         # If applicable
-```
+![Context window](./diagram-1.png)
+*Figure a*
 
 > 📌 *Diagram shown in README image above.*
 
