@@ -267,14 +267,10 @@ def handle_tool_calls(msg, chat_id):
         uprint(msg.content)
         times += 1
 
-def chat():
-    while True:
-        data = json.loads(input())
-        data = data[0]
-        type = data['type']
-        payload = data['payload']
-
-        if type == "switch-chat":
+# Returns True if the type is handled, false otherwise
+def handle_types(type, payload):
+    match type:
+        case "switch-chat":
             # If payload is null, create a new chat and return the new state of chats
             if payload is None:
                 state.current_chat_id = create_chat("New Chat")
@@ -312,16 +308,20 @@ def chat():
                     uprint(mes, OutGoingDataType.RETURN_CHAT_MESSAGES, meta={"paginated": False})
                 except ValueError:
                     uprint(f"Invalid chat ID: {payload}", OutGoingDataType.LOG)
-            continue
-        if type == "get-all-chats":
+            return True
+        case "get-all-chats":
             chats = get_chats()
             for chat in chats:
                 chat["active"] = (chat["id"] == state.current_chat_id)
             uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
-            continue
-        if type == "get-current-chat-id":
+            
+            return True
+        
+        case "get-current-chat-id":
             uprint(state.current_chat_id, OutGoingDataType.RETURN_CURRENT_CHAT_ID)
-        if type == "get-chat-messages":
+
+            return True
+        case "get-chat-messages":
             limit = 10
             before_id = float("inf") 
             isPaginated = False
@@ -338,6 +338,21 @@ def chat():
 
             m = get_chat_messages(state.current_chat_id, limit, before_id)
             uprint(m, OutGoingDataType.RETURN_CHAT_MESSAGES, meta={"paginated": isPaginated})
+
+            return True
+        
+    return False
+
+
+def chat():
+    while True:
+        data = json.loads(input())
+        data = data[0]
+        type = data['type']
+        payload = data['payload']
+
+        if handle_types(type, payload) == True:
+            continue
 
         # Ensure that we have a user input
         if type != "user-message":
