@@ -160,6 +160,8 @@ Buddy uses liberal filtering to identify potentially “important” messages an
 
 This hybrid system balances transparency and automation: users can manually edit their profile or set an entirely new one at any time, while the assistant progressively builds a richer understanding of the user over time without manual intervention.
 
+---
+
 ### 4. Sliding Window Summarization
 
 To manage context length and token usage efficiently, Buddy employs a sliding window mechanism that periodically summarizes earlier parts of a conversation. The overall context structure follows this format:
