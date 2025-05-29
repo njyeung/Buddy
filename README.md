@@ -158,10 +158,12 @@ For enhanced contextual awareness across chats, Buddy implements RAG. However, i
 
 This enables the language model to incorporate meaningful information from other interactions and deliver more intelligent, context-aware responses, while also letting the user control what it should “remember.”
 
-a. Important messages are vectorized and stored in a vector DB along with metadata tags (see figure a).
-b. When a user inputs a new message, it is vectorized and used to query the vector DB for semantically relevant messages where `chat_id != current_chat_id` and `project_id == current_project_id`.
-c. Each matching vector includes a metadata tag with the original `message_id`, which is used to retrieve the original message from the SQL database.
-d. These retrieved messages are injected into the prompt as ephemeral memory.
+<ol type="a">
+  <li>Important messages are vectorized and stored in a vector DB along with metadata tags (see figure a).</li>
+  <li>When a user inputs a new message, it is vectorized and used to query the vector DB for semantically relevant messages where <code>chat_id != current_chat_id</code> and <code>project_id == current_project_id</code>.</li>
+  <li>Each matching vector includes a metadata tag with the original <code>message_id</code>, which is used to retrieve the original message from the SQL database.</li>
+  <li>These retrieved messages are injected into the prompt as ephemeral memory.</li>
+</ol>
 
 > These retrieved messages are not persisted and do not affect the conversation history—they’re injected just-in-time to influence the model for a better response.
 
