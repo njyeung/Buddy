@@ -16,6 +16,7 @@ Learning project build upon the GPT api
 * Link up renaming and deleting chats
 * Give buddy a personality
 * Text to speech and voice recognition
+* Store summary threads in DB
 * Shell command pass-through; Intercept user shell commands such as cd and ls and exec them in the shell. Return the result back into the chat.
   * { type: “user-message”, payload: “what’s the weather today?” } <- passed through to python backend
   * { type: “user-message”, payload: “cd /home” } <- captured by C bridge 
