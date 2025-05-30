@@ -175,7 +175,7 @@ def spotify_get_album_tracks(uri: str):
         return f"Failed to get album tracks: {str(e)}"
 
 @tool("Returns the user's Spotify playlists.")
-def spotify_get_playlists(limit:int=20):
+def spotify_get_playlists(limit:int=10):
     if (result := spotify_launch()): return result
 
     playlists = sp.current_user_playlists(limit=limit)["items"]
@@ -273,7 +273,7 @@ def spotify_get_new_releases():
     sp.search()
 
 @tool("Gets user's library of favorite albums (launches spotify automatically if it isn't already open)")
-def spotify_get_user_saved_albums(limit:int=20):
+def spotify_get_user_saved_albums(limit:int=10):
     if (result := spotify_launch()): return result
 
     try:
@@ -297,7 +297,7 @@ def spotify_get_user_saved_albums(limit:int=20):
         return f"Failed to fetch saved albums: {str(e)}"
 
 @tool("Search on spotify, returns top results from tracks and albums (launches spotify automatically if it isn't already open)")
-def spotify_search(query:str, limit:int=10):
+def spotify_search(query:str, limit:int=5):
     if (result := spotify_launch()): return result
 
     try:
