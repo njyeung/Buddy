@@ -38,7 +38,7 @@ export default function ChatBox({sendData}: {sendData: (type: OutgoingDataType, 
   }, [messages.length]);
 
   useEffect(() => {
-    const handleIncomingData = (e: Event) => {
+    const handleChatBoxData = (e: Event) => {
 
       const customEvent = e as CustomEvent<IncomingData>;
       const { type } = customEvent.detail;
@@ -52,7 +52,7 @@ export default function ChatBox({sendData}: {sendData: (type: OutgoingDataType, 
       }
 
       if (type === "return-chat-messages") {
-
+        console.log("ASDIJASLKDLASKJD")
         scrollToBottom.current = true
 
         const payload = customEvent.detail.payload as unknown as { id: number; role: string; content: string }[];
@@ -104,15 +104,13 @@ export default function ChatBox({sendData}: {sendData: (type: OutgoingDataType, 
           scrollToBottom.current = true
           setMessages(tmp);
         }
-
-        
       }
     };
 
-    window.addEventListener("IncomingDataEvent", handleIncomingData);
+    window.addEventListener("IncomingDataEvent", handleChatBoxData);
 
     return () => {
-      window.removeEventListener("IncomingDataEvent", handleIncomingData);
+      window.removeEventListener("IncomingDataEvent", handleChatBoxData);
     };
   }, []);
 
