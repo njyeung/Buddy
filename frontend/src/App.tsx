@@ -6,7 +6,43 @@ import ChatsBar from './ChatsBar/ChatsBar';
 
 
 export default function App() {
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().includes("MAC");
+      const mod = isMac ? event.metaKey : event.ctrlKey;
 
+      if (!mod) return;
+
+      const active = document.activeElement;
+      const isInput =
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable);
+
+      if (!isInput) return;
+
+      if (event.key === "c") {
+        document.execCommand("copy");
+        event.preventDefault();
+      }
+
+      if (event.key === "v") {
+        document.execCommand("paste");
+        event.preventDefault();
+      }
+
+      if (event.key === "x") {
+        document.execCommand("cut");
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+
+    return () => {
+      window.removeEventListener("keydown", handler);
+    };
+  }, []);
 
   function handleToolWindow(data: IncomingData | OutgoingData) {
     if (data.type === "tool-call" || data.type === "tool-return") {
@@ -64,6 +100,25 @@ export default function App() {
       );
     }
   }
+  
+  const promptReturn = (id: number, type: OutgoingDataType, payload: any, meta: string) => {
+    setWindows(prev => prev.filter(w => w.id !== id));
+
+    sendData(type, payload, meta)
+  }
+  function handlePrompt(data: IncomingData) {
+    if(data.type === "prompt" ) {
+      setWindows((prev) => {
+        // Open the promptbox window if needed
+        const nextId = prev.length > 0 ? prev[prev.length - 1].id + 1 : 1;
+        return [...prev, {
+          id: nextId,
+          windowType: "promptbox",
+          props: { id: nextId, prompt: data, promptReturn }
+        }];
+      });
+    }
+  }
 
   useEffect(()=> {
     const getAllChats : OutgoingData = {
@@ -104,6 +159,7 @@ export default function App() {
       handleToolWindow(data)
       handleReturnAllChats(data)
       handleReturnCurrentChatId(data)
+      handlePrompt(data)
 
       console.log(data)
 
@@ -112,12 +168,14 @@ export default function App() {
     };
   }, [])
   
-  const sendData = (type: OutgoingDataType, payload: string | null) => {
+  const sendData = (type: OutgoingDataType, payload: string | null, meta?: any) => {
     const data: OutgoingData = {
       type: type,
       payload: payload
     };
     
+    if(meta) data.meta = meta
+
     handleToolWindow(data)
 
     // @ts-ignore
