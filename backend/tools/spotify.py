@@ -305,7 +305,7 @@ def spotify_get_user_saved_albums(limit:int=20):
         return f"Failed to fetch saved albums: {str(e)}"
 
 @tool("Search on spotify, returns top results from tracks and albums (launches spotify automatically if it isn't already open)")
-def spotify_search(query:str, limit:int=10):
+def spotify_search(query:str, limit:int=5):
     spotify_launch()
 
     try:
