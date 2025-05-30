@@ -27,20 +27,12 @@ load_dotenv()
 
 # API key not found, prompt user for one
 api_key = os.environ.get("OPENAI")
+
+
 if not api_key:
-    uprint("OPENAI not found in environment.")
-    api_key = input("Please paste your OpenAI API key: ").strip()
-
-    if not api_key:
-        uprint("No API key provided. Exiting.")
-        sys.exit(1)
-    
-    with open(env_path, "w") as f:
-        f.write(f"OPENAI={api_key}")
-    
-    load_dotenv()
-
-client = OpenAI(api_key=os.environ.get("OPENAI"))
+    uprint("OPENAI not found in environment. Please paste your OpenAI API key", OutGoingDataType.PROMPT, "OPENAI")
+else:
+    state.client = OpenAI(api_key=os.environ.get("OPENAI"))
 
 system_prompt = f"""
 You are Buddy, an intelligent, resourceful assistant with access to tools and memory. Your goal is to help the user accomplish tasks efficiently and independently, using available tools and your own reasoning.
@@ -80,7 +72,28 @@ Capabilities:
 - Plan and carry out multi-step actions
 """
 
+def update_env_file(key: str, value: str, path: str):
+    path = Path(path)
+    lines = []
+    
+    if path.exists():
+        with path.open("r") as f:
+            lines = f.readlines()
 
+    updated = False
+    for i, line in enumerate(lines):
+        if line.strip().startswith(f"{key}="):
+            lines[i] = f"{key}={value}\n"
+            updated = True
+            break
+
+    if not updated:
+        lines.append(f"{key}={value}\n")
+
+    with path.open("w") as f:
+        f.writelines(lines)
+
+    load_dotenv()
 
 def summarize_messages(client: OpenAI, chat_id: int):
     # Strip system prompts and keep last N messages
@@ -254,7 +267,7 @@ def handle_tool_calls(msg, chat_id):
             uprint(f"{fn_name}: {result}", OutGoingDataType.TOOL_RETURN)
 
         # Follow up after tool execution
-        response = client.chat.completions.create(
+        response = state.client.chat.completions.create(
             model=MASTER_MODEL,
             messages=state.messages,
             tools=tool_definitions,
@@ -268,7 +281,7 @@ def handle_tool_calls(msg, chat_id):
         times += 1
 
 # Returns True if the type is handled, false otherwise
-def handle_types(type, payload):
+def handle_types(type, payload, meta):
     match type:
         case "switch-chat":
             # If payload is null, create a new chat and return the new state of chats
@@ -340,6 +353,17 @@ def handle_types(type, payload):
             uprint(m, OutGoingDataType.RETURN_CHAT_MESSAGES, meta={"paginated": isPaginated})
 
             return True
+        case "return-prompt":
+            if meta == "OPENAI":
+                update_env_file("OPENAI", payload, env_path)
+                state.client = OpenAI(api_key=os.environ.get("OPENAI"))
+
+            elif meta == "SPOTIFY_CLIENT":
+                update_env_file("SPOTIFY_CLIENT_ID", payload, env_path)
+
+            elif meta == "SPOTIFY_CLIENT_SECRET":
+                update_env_file("SPOTIFY_CLIENT_SECRET", payload, env_path)
+        
         
     return False
 
@@ -350,8 +374,9 @@ def chat():
         data = data[0]
         type = data['type']
         payload = data['payload']
+        meta = data.get('meta')
 
-        if handle_types(type, payload) == True:
+        if handle_types(type, payload, meta) == True:
             continue
 
         # Ensure that we have a user input
@@ -362,9 +387,9 @@ def chat():
         insert_message(state.current_chat_id, "user", payload)
 
         # If needed, check for if we need to summarize here
-        state.messages = summarize_messages(client, state.current_chat_id)
+        state.messages = summarize_messages(state.client, state.current_chat_id)
 
-        response = client.chat.completions.create(
+        response = state.client.chat.completions.create(
             model=MASTER_MODEL,
             messages=state.messages,
             tools=tool_definitions,
