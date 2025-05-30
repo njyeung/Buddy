@@ -2,13 +2,11 @@ import base64
 import os
 import tempfile
 from PIL import Image
-from openai import OpenAI
+from state import client
 import pyautogui
 from screeninfo import get_monitors
 from config import MASTER_MODEL
 from tool_decorator import tool
-
-client = OpenAI(api_key=os.environ.get("OPENAI"))
 
 @tool("Uses the vision sub-agent to help answer a visual question. Pass in what the user wants to know.")
 def ask_about_screen(query: str, primary_monitor_only: bool = True):

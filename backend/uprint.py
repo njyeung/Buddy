@@ -2,6 +2,9 @@ import json
 from enum import Enum
 
 class OutGoingDataType(str, Enum):
+    # Prompts for api keys
+    PROMPT = "prompt"
+    
     MESSAGE = "assistant-message"
     TOOL_CALL = "tool-call"
     TOOL_RETURN = "tool-return"
