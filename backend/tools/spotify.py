@@ -232,25 +232,25 @@ def spotify_get_current_song():
         "duration_ms": item.get("duration_ms", 0)
     }
 
-@tool("Adds one or more Spotify track URIs to a playlist (launches Spotify automatically if it isn't already open).")
-def spotify_add_to_playlist(playlist_id: str, track_uri: str):
-    if (result := spotify_launch()): return result
+# @tool("Adds one or more Spotify track URIs to a playlist (launches Spotify automatically if it isn't already open).")
+# def spotify_add_to_playlist(playlist_id: str, track_uri: str):
+#     if (result := spotify_launch()): return result
 
-    if not track_uri:
-        return "No track URIs provided."
+#     if not track_uri:
+#         return "No track URIs provided."
 
-    try:
-        result = sp.playlist_add_items(playlist_id, [track_uri])
-        return {
-            "status": "success",
-            "snapshot_id": result.get("snapshot_id"),
-            "message": f"Added {track_uri} to playlist {playlist_id}."
-        }
-    except spotipy.SpotifyException as e:
-        return {
-            "status": "error",
-            "message": f"Failed to add tracks to playlist: {str(e)}"
-        }
+#     try:
+#         result = sp.playlist_add_items(playlist_id, [track_uri])
+#         return {
+#             "status": "success",
+#             "snapshot_id": result.get("snapshot_id"),
+#             "message": f"Added {track_uri} to playlist {playlist_id}."
+#         }
+#     except spotipy.SpotifyException as e:
+#         return {
+#             "status": "error",
+#             "message": f"Failed to add tracks to playlist: {str(e)}"
+#         }
 
 @tool("Plays a spotify song, album, or playlist by its uri (launches spotify automatically if it isn't already open)")
 def spotify_play_uri(uri: str):

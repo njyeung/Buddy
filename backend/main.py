@@ -11,7 +11,7 @@ from state import tool_definitions, tool_functions
 import threading
 from watcher import start_file_watcher, load_tools
 from uprint import OutGoingDataType, uprint
-from storage.chat_storage import init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats
+from storage.chat_storage import init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats, save_chat_window, load_chat_window
 import state
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -95,7 +95,9 @@ def update_env_file(key: str, value: str, path: str):
 
     load_dotenv()
 
-def summarize_messages(client: OpenAI, chat_id: int):
+
+# This code is so cooked I need to fix this later...
+def summarize_messages(client: OpenAI):
     # Strip system prompts and keep last N messages
 
     # Context layout:
@@ -139,6 +141,16 @@ def summarize_messages(client: OpenAI, chat_id: int):
             return msg
         return None
 
+    def get_role(msg):
+        if isinstance(msg, dict):
+            return msg.get("role")
+        return getattr(msg, "role", None)
+    
+    def get_content(msg):
+        if isinstance(msg, dict):
+            return msg.get("content")
+        return getattr(msg, "content", None)
+    
     normalized_messages = [norm for m in state.messages if (norm := normalize_for_summary(m))]
     
     to_summarize = normalized_messages[:-NUM_RECENT_MESSAGES_TO_KEEP]
@@ -149,17 +161,17 @@ def summarize_messages(client: OpenAI, chat_id: int):
     ]
 
     # Edge case where the window breaks assistant tool call and tool return
-    if recent and recent[0]["role"] == "tool":
+    if recent and get_role(recent[0]) == "tool":
         recent.pop(0)
 
     # Count characters
     char_count = sum(len(m["content"]) for m in to_summarize)
     if char_count < SUMMARY_TRIGGER_CHAR_COUNT:
-        uprint("Conversation not long enough", OutGoingDataType.LOG)
+        uprint(f"Conversation not long enough {char_count}", OutGoingDataType.LOG)
         return state.messages  # Sliding window of conversation is too short to be summarized
 
-    previous_summary = next((m for m in reversed(normalized_messages) 
-        if m["role"] == "system" and "[Summary of previous context]" in m["content"]),
+    previous_summary = next((m for m in reversed(state.messages) 
+        if get_role(m) == "system" and "[SUMMARY OF PREVIOUS CONTEXT]" in get_content(m)),
         None
     )
 
@@ -180,11 +192,11 @@ def summarize_messages(client: OpenAI, chat_id: int):
         When summarizing, focus on:
         1. Decisions, plans, or tasks mentioned by the user
         2. Corrections, clarifications, or preferences relevant to the current session
-        3. Technical details or assistant actions worth recalling in future steps
+        3. Technical details worth recalling in future steps
          
         {extra_instruction}
         
-        Write clearly and concisely, using bullet points or short sentences. Limit the summary to 200 words.
+        Limit the summary to 200 words. Write clearly and concisely, using bullet points or short sentences. You may start and end abruptly. Do not annotate your summary.
         """}
     ]
 
@@ -210,6 +222,11 @@ def summarize_messages(client: OpenAI, chat_id: int):
             "content": f"Here is the full conversation so far. Please summarize it: \n\n{conversation_text}"
         })
     
+    # uprint(f"[CONVERSATION LONG ENOUGH] {char_count}", OutGoingDataType.LOG)
+    # uprint(f"[TO SUMMARIZE]: {prompt}" )
+    # uprint(f"[PREVIOUS SUMMARY] {previous_summary}", OutGoingDataType.LOG)
+    # uprint(f"[CONTENT OF PRVIOUS SUMMARY] {previous_summary}")
+
     response = client.chat.completions.create(
         model=SLAVE_MODEL,
         messages=prompt
@@ -222,7 +239,6 @@ def summarize_messages(client: OpenAI, chat_id: int):
 
     # uprint(f"[CONTEXT WINDOW]: {[state.messages[0], summary_msg] + recent}" )
     return [state.messages[0], summary_msg] + recent
-
 
 def handle_tool_calls(msg, chat_id):
     times = 0
@@ -241,6 +257,7 @@ def handle_tool_calls(msg, chat_id):
                 state.messages.append(tool_response)
                 insert_message(chat_id, "tool", limit_msg)
                 uprint(limit_msg, OutGoingDataType.TOOL_RETURN)
+                save_chat_window()
 
             assistant_msg = {
                 "role": "assistant",
@@ -249,6 +266,7 @@ def handle_tool_calls(msg, chat_id):
             state.messages.append(assistant_msg)
             insert_message(chat_id, "assistant", assistant_msg["content"])
             uprint(assistant_msg["content"])
+            save_chat_window()
 
             return
 
@@ -262,9 +280,11 @@ def handle_tool_calls(msg, chat_id):
                 result = json.dumps(result, indent=2)
 
             tool_msg = {"role": "tool", "tool_call_id": call.id, "content": result}
+            
             state.messages.append(tool_msg)
             insert_message(chat_id, "assistant", f"tool-call: {fn_name}({', '.join(repr(v) for v in args.values())}), tool-return: {result}")
             uprint(f"{fn_name}: {result}", OutGoingDataType.TOOL_RETURN)
+            save_chat_window()
 
         # Follow up after tool execution
         response = state.client.chat.completions.create(
@@ -278,6 +298,8 @@ def handle_tool_calls(msg, chat_id):
         state.messages.append(msg)
         insert_message(chat_id, "assistant", msg.content)
         uprint(msg.content)
+        save_chat_window()
+
         times += 1
 
 # Returns True if the type is handled, false otherwise
@@ -388,6 +410,8 @@ def chat():
 
         # If needed, check for if we need to summarize here
         state.messages = summarize_messages(state.client, state.current_chat_id)
+        
+        save_chat_window()
 
         response = state.client.chat.completions.create(
             model=MASTER_MODEL,
@@ -400,11 +424,15 @@ def chat():
 
         state.messages.append(msg)
         insert_message(state.current_chat_id, msg.role, msg.content)
+        save_chat_window()
 
         if msg.tool_calls:
             handle_tool_calls(msg, state.current_chat_id)
         else:
             uprint(msg.content)
+
+        # Persist current message thread to DB
+        save_chat_window()
 
 if __name__ == "__main__":
     load_tools()
@@ -417,10 +445,12 @@ if __name__ == "__main__":
     # If there are no chats, this creates a default chat and returns its ID
     state.current_chat_id = get_latest_chat_id()
     # Get the messages from that chat, if there are no messages, we need to append the initial system message 
-    state.messages = get_chat_messages(state.current_chat_id, 99999, float("inf"))
+    state.messages = load_chat_window(state.current_chat_id)
+
     if not state.messages:
         system_msg = {"role": "system", "content": system_prompt}
         state.messages.append(system_msg)
         insert_message(state.current_chat_id, "system", system_prompt)
-    
+        save_chat_window()
+
     chat()

@@ -1,0 +1,5 @@
+- Attempts to search sometimes and answer based off that instead of combining with its knowledge. We want the LLM to use what it 
+learns from its tool calls (especially searching online or on spotify) in conjunction with its current knowledge
+- It doesn't really know what to do when you say stuff like "Can you solve this?" (look at my screen) or "Tell me more about the 
+song I'm listening to" (Check out what's playing on my spotify). Maybe give more direct instructions 
+to help it infer what the user wants it to do

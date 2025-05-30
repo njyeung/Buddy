@@ -59,7 +59,7 @@ def ask_about_screen(query: str, primary_monitor_only: bool = True):
 
     Output your response as if you're preparing the **main assistant** to continue helping the user without needing to reach out to you again. Imagine the main LLM can't see the image — you're its eyes.
 
-    Keep your response **detailed but concise** (under 150 words), and format with **clear sections** if helpful (e.g., "Query Answer:", "Screen Summary:").
+    Keep your response **detailed but concise** (under 100 words), and format with **clear sections** if helpful (e.g., "Query Answer:", "Screen Summary:").
 
     Do not ask follow-up questions. Assume the main LLM will handle conversation next.
     """
