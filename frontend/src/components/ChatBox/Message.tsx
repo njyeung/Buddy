@@ -10,7 +10,7 @@ export default function Message({ message }: { message: IncomingData | OutgoingD
   const { type, payload } = message
 
   if(type != "user-message" && type != "assistant-message") {
-    return <div>ATTEMPTED TO PASS NON-MESSAGE DATA INTO MESSAGE COMPONENT</div>
+    return ""
   }
 
   const [copyState, setCopyState] = useState("⧉ Copy")

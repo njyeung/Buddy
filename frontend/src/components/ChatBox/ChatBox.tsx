@@ -8,7 +8,8 @@ export default function ChatBox({sendData}: {sendData: (type: OutgoingDataType, 
 
   const [messages, setMessages] = useState<(IncomingData | OutgoingData)[]>([]);
   const [earliestMessageId, setEarliestMessageId] = useState<number | null>(null);
-  
+  const hasMoreMessages = useRef(true);
+
   const scrollToBottom = useRef(true);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -45,14 +46,14 @@ export default function ChatBox({sendData}: {sendData: (type: OutgoingDataType, 
 
       if (type === "assistant-message") {
         scrollToBottom.current = true
-
+        
         setMessages((prev) => {
           return [...prev, customEvent.detail]
         });
       }
 
       if (type === "return-chat-messages") {
-        console.log("ASDIJASLKDLASKJD")
+
         scrollToBottom.current = true
 
         const payload = customEvent.detail.payload as unknown as { id: number; role: string; content: string }[];
@@ -62,12 +63,23 @@ export default function ChatBox({sendData}: {sendData: (type: OutgoingDataType, 
         const tmp:(IncomingData | OutgoingData)[] = []
         let newEarliestId: number | null = null;
 
+        if (payload.length < 10) {
+          hasMoreMessages.current = false;
+        }
+        else {
+          hasMoreMessages.current = true;
+        }
+
         payload.forEach((data)=> {
           if(data.role == "user") {
             tmp.push({type: "user-message", payload: data.content})
           }
           else if(data.role == "assistant" && !data.content.match(/tool-call: (.+?), tool-return:/)) {
             tmp.push({type: "assistant-message", payload: data.content})
+          }
+          else {
+            // Random tool stuff that doesn't need to be rendered
+            tmp.push({type: "tool-call", payload: data.content})
           }
 
           if (newEarliestId === null || data.id < newEarliestId) {
@@ -117,6 +129,21 @@ export default function ChatBox({sendData}: {sendData: (type: OutgoingDataType, 
   useEffect(() => {
     if(scrollToBottom.current == true) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    let actualCount = 0
+    let toolCount = 0
+    messages.forEach((msg)=> {
+      if(msg.type == "assistant-message" || msg.type == "user-message") {
+        actualCount ++;
+      }
+      if(msg.type == "tool-call") {
+        toolCount ++;
+      }
+    })
+
+    if (actualCount < 5 && hasMoreMessages.current == true) {
+      scrollRef.current?.dispatchEvent(new Event("scroll"));
     }
   }, [messages]);
 
