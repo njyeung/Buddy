@@ -16,7 +16,7 @@ Learning project build upon the GPT api
 * Link up renaming and deleting chats
 * Give buddy a personality
 * Text to speech and voice recognition
-* Store summary threads in DB
+* ~~Store summary threads in DB~~ ✅
 * Shell command pass-through; Intercept user shell commands such as cd and ls and exec them in the shell. Return the result back into the chat.
   * { type: “user-message”, payload: “what’s the weather today?” } <- passed through to python backend
   * { type: “user-message”, payload: “cd /home” } <- captured by C bridge 
@@ -193,7 +193,7 @@ To manage context length and token usage efficiently, Buddy employs a sliding wi
 
 <img src="./diagram-1.png" alt="Context Window" width="300"/>
 
-Recent X messages (e) — configurable via `NUM_RECENT_MESSAGES_TO_KEEP` in [`config.py`](./backend/config.py) (default: 7) — are always preserved to maintain the most up-to-date context.
+Recent X messages (e) — configurable via `NUM_RECENT_MESSAGES_TO_KEEP` in [`config.py`](./backend/config.py) (default: 5) — are always preserved to maintain the most up-to-date context.
 
 Whenever the combined character count from the start of the **dynamic summary system prompt** to the start of the **recent messages** exceeds N characters (set via `SUMMARY_TRIGGER_CHAR_COUNT` in [`config.py`](./backend/config.py), default: 5000), that section (c–d) is summarized by the slave model. The resulting summary replaces the original messages from that section.
 
