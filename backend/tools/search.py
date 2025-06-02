@@ -7,6 +7,7 @@ from serpapi import GoogleSearch
 from bs4 import BeautifulSoup
 import requests
 
+from uprint import OutGoingDataType, uprint
 from tool_decorator import tool
 
 # Load .env
@@ -20,10 +21,8 @@ else:
 def get_serpapi_key():
     api_key = os.environ.get("SERPAPI_API_KEY")
     if not api_key:
-        api_key = input("Enter your SerpAPI API key: ").strip()
-        os.environ["SERPAPI_API_KEY"] = api_key
-        with open(dotenv_path, "a") as f:
-            f.write(f"\nSERPAPI_API_KEY={api_key}")
+        uprint("Enter your SerpAPI key: ", OutGoingDataType.PROMPT, "SERPAPI")
+
     return api_key
 
 # Tools
@@ -32,6 +31,9 @@ def get_serpapi_key():
 def web_search(query:str, num_results:int=10):
     api_key = get_serpapi_key()
 
+    if not api_key:
+        return "SERPAPI_API_KEY missing from .env file. A window has opened up in the frontend prompting the user for their credentials."
+    
     params = {
         "engine": "google",
         "q": query,
