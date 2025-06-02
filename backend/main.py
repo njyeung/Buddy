@@ -385,7 +385,9 @@ def handle_types(type, payload, meta):
 
             elif meta == "SPOTIFY_CLIENT_SECRET":
                 update_env_file("SPOTIFY_CLIENT_SECRET", payload, env_path)
-        
+            
+            elif meta == "SERPAPI":
+                update_env_file("SERPAPI_API_KEY", payload, env_path)
         
     return False
 
@@ -409,7 +411,7 @@ def chat():
         insert_message(state.current_chat_id, "user", payload)
 
         # If needed, check for if we need to summarize here
-        state.messages = summarize_messages(state.client, state.current_chat_id)
+        state.messages = summarize_messages(state.client)
         
         save_chat_window()
 
