@@ -178,6 +178,7 @@ Along with the initial system prompt, we also maintain a global user profile inj
 * User’s name
 * Country
 * Preferred frameworks/languages
+* Favorite foods
 * Current projects and descriptions
 * And more
 
