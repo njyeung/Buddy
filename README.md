@@ -9,11 +9,11 @@ Learning project build upon the GPT api
 * ~~Write UNIX C piping for the bridge, rn it’s just windows code~~ ✅
 * ~~Automatic prompting for api keys broken ever since I added frontend~~ ✅
 * Add webview as submodule in git
-* Frontend resizable windows
+* Frontend resizable recursive window components
   * This is somehow harder than it looks.
   * Stumped llm count: (2) ~~o4-mini-high~~ ~~Sonnet 4~~
 * write_file tool should open up a text editor for the user
-* Link up renaming and deleting chats
+* ~~Link up renaming and deleting chats~~
 * Give buddy a personality
 * Text to speech and voice recognition
 * ~~Store summary threads in DB~~ ✅
