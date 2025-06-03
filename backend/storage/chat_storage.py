@@ -44,6 +44,13 @@ def create_chat(name: str = None) -> int:
         cursor.execute("INSERT INTO chats (name) VALUES (?)", (name, ))
         return cursor.lastrowid
 
+def delete_chat(chat_id: int):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
+        cursor.execute("DELETE FROM chat_windows WHERE chat_id = ?", (chat_id,))
+        cursor.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
+
 def get_chats():
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
@@ -134,3 +141,9 @@ def load_chat_window(chat_id: int):
         if row:
             return json.loads(row[0])
         return []
+    
+
+def rename_chat(chat_id: int, new_name: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE chats SET name = ? WHERE id = ?", (new_name, chat_id))
