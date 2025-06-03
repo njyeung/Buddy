@@ -148,7 +148,9 @@ All messages are stored in an SQL database, structured around a `projects` table
 
 In addition, projects help users organize related chats in a single folder.
 
+<p align="center">
 <img src="./diagram-2.png" alt="ER Diagram" width="800"/>
+</p>
 
 *Figure a*
 
@@ -192,7 +194,9 @@ This hybrid system balances transparency and automation: users can manually edit
 
 To manage context length and token usage efficiently, Buddy employs a sliding window mechanism that periodically summarizes earlier parts of a conversation. The overall context structure follows this format:
 
-<img src="./diagram-1.png" alt="Context Window" width="300"/>
+<p align="center">
+ <img src="./diagram-1.png" alt="Context Window" width="400"/>
+</p>
 
 Recent X messages (e) — configurable via `NUM_RECENT_MESSAGES_TO_KEEP` in [`config.py`](./backend/config.py) (default: 5) — are always preserved to maintain the most up-to-date context.
 
