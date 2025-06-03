@@ -158,7 +158,7 @@ In addition, projects help users organize related chats in a single folder.
 
 For enhanced contextual awareness across chats, Buddy implements RAG. However, instead of using RAG to retrieve messages from the current chat (which is already summarized using the sliding window approach—see section 4), we pull semantically similar messages from other chats within the same project (or globally, depending on config).
 
-This enables the language model to incorporate meaningful information from other interactions and deliver more intelligent, context-aware responses, while also letting the user control what it should “remember.”
+This enables the language model to incorporate meaningful information from other interactions and deliver more intelligent, context-aware responses, while also letting the user control what it should “remember”, and not flooding the user profile with information that might not be relevant to every conversation.
 
 <ol type="a">
   <li>Important messages are vectorized and stored in a vector DB along with metadata tags (see figure a).</li>
@@ -173,7 +173,7 @@ This enables the language model to incorporate meaningful information from other
 
 ### 3. User Profile
 
-Along with the initial system prompt, we also maintain a global user profile. This editable JSON includes traits such as:
+Along with the initial system prompt, we also maintain a global user profile injected under the system role. This editable JSON includes traits such as:
 
 * User’s name
 * Country
