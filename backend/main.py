@@ -11,7 +11,7 @@ from state import tool_definitions, tool_functions
 import threading
 from watcher import start_file_watcher, load_tools
 from uprint import OutGoingDataType, uprint
-from storage.chat_storage import init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats, save_chat_window, load_chat_window
+from storage.chat_storage import delete_chat, init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats, rename_chat, save_chat_window, load_chat_window
 import state
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -343,15 +343,13 @@ def handle_types(type, payload, meta):
                     uprint(mes, OutGoingDataType.RETURN_CHAT_MESSAGES, meta={"paginated": False})
                 except ValueError:
                     uprint(f"Invalid chat ID: {payload}", OutGoingDataType.LOG)
-            return True
+            
         case "get-all-chats":
             chats = get_chats()
             for chat in chats:
                 chat["active"] = (chat["id"] == state.current_chat_id)
             uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
-            
-            return True
-        
+
         case "get-current-chat-id":
             uprint(state.current_chat_id, OutGoingDataType.RETURN_CURRENT_CHAT_ID)
 
@@ -374,7 +372,6 @@ def handle_types(type, payload, meta):
             m = get_chat_messages(state.current_chat_id, limit, before_id)
             uprint(m, OutGoingDataType.RETURN_CHAT_MESSAGES, meta={"paginated": isPaginated})
 
-            return True
         case "return-prompt":
             if meta == "OPENAI":
                 update_env_file("OPENAI", payload, env_path)
@@ -388,8 +385,25 @@ def handle_types(type, payload, meta):
             
             elif meta == "SERPAPI":
                 update_env_file("SERPAPI_API_KEY", payload, env_path)
+            
+        case "rename-chat":
+            rename_chat(chat_id=meta, new_name=payload)
+            chats = get_chats()
+            for chat in chats:
+                chat["active"] = (chat["id"] == state.current_chat_id)
+            uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
         
-    return False
+        case "delete-chat":
+            delete_chat(payload)
+
+            state.current_chat_id = get_latest_chat_id()
+
+            chats = get_chats()
+            for chat in chats:
+                chat["active"] = (chat["id"] == state.current_chat_id)
+            
+            uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
+
 
 
 def chat():
@@ -400,8 +414,7 @@ def chat():
         payload = data['payload']
         meta = data.get('meta')
 
-        if handle_types(type, payload, meta) == True:
-            continue
+        handle_types(type, payload, meta)
 
         # Ensure that we have a user input
         if type != "user-message":

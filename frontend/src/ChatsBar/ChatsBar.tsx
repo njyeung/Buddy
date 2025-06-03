@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Chat, OutgoingDataType } from "../interface";
 import ScrollableChatName from "./ScrollableChatName";
+import ChatSettings from "./ChatSettings";
 
-export default function ChatsBar({ chats, sendData } : { chats : Chat[], sendData: (type: OutgoingDataType, data: string | null) => void;}){
+export default function ChatsBar({ chats, sendData, openModal, closeModal } : { chats : Chat[], sendData: (type: OutgoingDataType, data: string | null, meta?: any) => void , openModal: (content: React.ReactNode) => void , closeModal: () => void }){
   
   const [sidebarWidth, setSidebarWidth] = useState(70);
   
@@ -41,8 +42,8 @@ export default function ChatsBar({ chats, sendData } : { chats : Chat[], sendDat
     window.removeEventListener("mouseup", stopResizing);
   }
 
-
   
+
   return (
     <>
       <div
@@ -71,6 +72,12 @@ export default function ChatsBar({ chats, sendData } : { chats : Chat[], sendDat
               <div 
               onClick={()=>{
                 sendData("switch-chat", String(chat.id))
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                openModal(
+                  <ChatSettings chat={chat} sendData={sendData} closeModal={closeModal}></ChatSettings>
+                );
               }}
               key={chat.id} className="cursor-pointer w-full border-primary-200 border-t last:border-b">
                 <ScrollableChatName active={chat.active} name={chat.name}></ScrollableChatName>

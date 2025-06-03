@@ -3,38 +3,47 @@ import type { OutgoingData, OutgoingDataType, IncomingData, Window as WindowInte
 
 import Window from './components/Window' ;
 import ChatsBar from './ChatsBar/ChatsBar';
+import ContextMenu from './ContextMenu';
 
 
 export default function App() {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().includes("MAC");
+
       const mod = isMac ? event.metaKey : event.ctrlKey;
-
-      if (!mod) return;
-
+      
       const active = document.activeElement;
+      
       const isInput =
-        active instanceof HTMLInputElement ||
-        active instanceof HTMLTextAreaElement ||
-        (active instanceof HTMLElement && active.isContentEditable);
-
+          active instanceof HTMLInputElement ||
+          active instanceof HTMLTextAreaElement ||
+          (active instanceof HTMLElement && active.isContentEditable);
+      
       if (!isInput) return;
+      if (mod) {
+        if (event.key === "c") {
+          document.execCommand("copy");
+          event.preventDefault();
+        }
 
-      if (event.key === "c") {
-        document.execCommand("copy");
-        event.preventDefault();
-      }
+        if (event.key === "v") {
+          navigator.clipboard.readText()
+          .then((text) => {
+            if (document.activeElement instanceof HTMLElement) {
+              if (active.isContentEditable) {
+                document.execCommand("insertText", false, text); // legacy fallback
+              }
+            }
+          })
+        }
 
-      if (event.key === "v") {
-        document.execCommand("paste");
-        event.preventDefault();
+        if (event.key === "x") {
+          document.execCommand("cut");
+          event.preventDefault();
+        }
       }
-
-      if (event.key === "x") {
-        document.execCommand("cut");
-        event.preventDefault();
-      }
+      
     };
 
     window.addEventListener("keydown", handler);
@@ -184,11 +193,28 @@ export default function App() {
   };
 
   const [windows, setWindows] = useState<WindowInterface[]>([{ id: 0, windowType: "chatbox", props: {sendData}}]);
+  const [modalOpened, setModalOpened] = useState(true); 
+  const [modalContent, setModalContent] = useState<React.ReactNode>(null);
+
+  const openModal = (content: React.ReactNode) => {
+    setModalContent(content);
+    setModalOpened(true);
+  };
+  const closeModal = () => {
+    setModalContent(null)
+    setModalOpened(false);
+  }
 
   return (
     <div className="w-full h-screen flex flex-row relative">
+      {
+        modalOpened && 
+        <ContextMenu setOpened={setModalOpened}>
+          { modalContent }
+        </ContextMenu>
+      }
       <Window items={windows}></Window>
-      <ChatsBar chats={chats} sendData={sendData}></ChatsBar>
+      <ChatsBar chats={chats} sendData={sendData} openModal={openModal} closeModal={closeModal}></ChatsBar>
     </div>
   );
 }
