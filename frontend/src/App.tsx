@@ -193,7 +193,7 @@ export default function App() {
   };
 
   const [windows, setWindows] = useState<WindowInterface[]>([{ id: 0, windowType: "chatbox", props: {sendData}}]);
-  const [modalOpened, setModalOpened] = useState(true); 
+  const [modalOpened, setModalOpened] = useState(false); 
   const [modalContent, setModalContent] = useState<React.ReactNode>(null);
 
   const openModal = (content: React.ReactNode) => {
