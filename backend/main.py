@@ -14,25 +14,7 @@ from uprint import OutGoingDataType, uprint
 from storage.chat_storage import delete_chat, init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats, rename_chat, save_chat_window, load_chat_window
 import state
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# Make sure .env file exists
-env_path = Path(__file__).parent / ".env"
-if not env_path.exists():
-    uprint(".env file not found, creating one")
-    env_path.touch()
-
-load_dotenv()
-
-# API key not found, prompt user for one
-api_key = os.environ.get("OPENAI")
-
-
-if not api_key:
-    uprint("OPENAI not found in environment. Please paste your OpenAI API key", OutGoingDataType.PROMPT, "OPENAI")
-else:
-    state.client = OpenAI(api_key=os.environ.get("OPENAI"))
 
 system_prompt = f"""
 You are Buddy, an intelligent, resourceful assistant with access to tools and memory. Your goal is to help the user accomplish tasks efficiently and independently, using available tools and your own reasoning.
@@ -450,6 +432,9 @@ def chat():
         save_chat_window()
 
 if __name__ == "__main__":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
     load_tools()
     threading.Thread(target=lambda: start_file_watcher(load_tools), daemon=True).start()
 
@@ -467,5 +452,22 @@ if __name__ == "__main__":
         state.messages.append(system_msg)
         insert_message(state.current_chat_id, "system", system_prompt)
         save_chat_window()
+
+
+    # Make sure .env file exists
+    env_path = Path(__file__).parent / ".env"
+    if not env_path.exists():
+        uprint(".env file not found, creating one")
+        env_path.touch()
+
+    load_dotenv()
+
+    # API key not found, prompt user for one
+    api_key = os.environ.get("OPENAI")
+
+    if not api_key:
+        uprint("OPENAI not found in environment. Please paste your OpenAI API key", OutGoingDataType.PROMPT, "OPENAI")
+    else:
+        state.client = OpenAI(api_key=os.environ.get("OPENAI"))
 
     chat()
