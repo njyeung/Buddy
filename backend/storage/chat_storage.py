@@ -105,7 +105,7 @@ def query_embeddings(chat_id: int, content: str):
     results = chroma_collection.query(query_embeddings=[query_embedding], n_results=10, include=["metadatas", "documents", "distances"])
 
     filtered_results = []
-    
+
     for doc, meta, dist in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
         if meta['chat_id'] != chat_id:
             filtered_results.append({
@@ -169,7 +169,9 @@ def insert_message(chat_id: int, role: str, content: str):
         uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
 
 
-    if content != None and role != "system":
+    if content != None and role != "system" and role != "tool" and not content.startswith("tool-call:"):
+
+        # TODO Add a simple filter for whether or not the message should be embedded
         store_embeddings(chat_id, role, content, msg_id)
         uprint(f"STORE EMBEDDINGS {content}", OutGoingDataType.LOG)
 
