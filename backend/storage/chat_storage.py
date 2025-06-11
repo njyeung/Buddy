@@ -1,14 +1,30 @@
 import sqlite3
 from pathlib import Path
+import threading
 from typing import List, Dict
 import json
-import state
 
+import openai
+import state
+import chromadb
+from chromadb.config import Settings
 from uprint import OutGoingDataType, uprint
 
 DB_PATH = Path(__file__).parent / "chat_memory.db"
 
+chroma_client = None
+chroma_collection = None
+
 def init_db():
+    global chroma_client, chroma_collection
+
+    chroma_client = chromadb.PersistentClient(
+        path=str(Path(__file__).parent / "chroma_index"),
+        settings=Settings(allow_reset=True)
+    )
+
+    chroma_collection = chroma_client.get_or_create_collection(name="buddy_messages")
+    
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
@@ -37,6 +53,70 @@ def init_db():
             FOREIGN KEY (chat_id) REFERENCES chats(id)
         )
         """)
+
+def store_embeddings(chat_id: int, role: str, content: str, msg_id: int, tags: list[str] = None):
+    global chroma_collection
+
+    if chroma_collection is None:
+        raise Exception("Chroma collection not initialized!")
+    
+    def task(chat_id, role, content, msg_id, tags):
+        embedding_response = state.client.embeddings.create(
+            model="text-embedding-3-small",
+            input=content
+        )
+        
+        embedding = embedding_response.data[0].embedding
+
+        metadata = {
+            "chat_id": str(chat_id),
+            "role": role,
+            "message_id": str(msg_id)
+        }
+
+        if tags is not None:
+            metadata["tags"] = ",".join(tags)
+        
+        chroma_collection.add(
+            embeddings=[embedding], 
+            documents=[content], 
+            ids=[str(msg_id)], 
+            metadatas=[metadata]
+        )
+    
+    threading.Thread(
+        target=task, 
+        args=(chat_id, role, content, msg_id, tags)
+    ).start()
+
+def query_embeddings(chat_id: int, content: str):
+    global chroma_collection
+
+    if chroma_collection is None:
+        raise Exception("Chroma collection not initialized!")
+    
+    embedding_response = state.client.embeddings.create(
+        model="text-embedding-3-small",
+        input=content
+    )
+    
+    query_embedding = embedding_response.data[0].embedding
+
+    results = chroma_collection.query(query_embeddings=[query_embedding], n_results=10, include=["metadatas", "documents", "distances"])
+
+    filtered_results = []
+    
+    for doc, meta, dist in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
+        if meta['chat_id'] != chat_id:
+            filtered_results.append({
+                "document": doc,
+                "chat_id": meta['chat_id'],
+                "message_id": meta['message_id'],
+                "role": meta['role'],
+                "distance": dist
+            })
+
+    return filtered_results
 
 def create_chat(name: str = None) -> int:
     with sqlite3.connect(DB_PATH) as conn:
@@ -68,6 +148,7 @@ def get_latest_chat_id():
         return create_chat("New Chat")
 
 def insert_message(chat_id: int, role: str, content: str):
+    
     with sqlite3.connect(DB_PATH) as conn:
         if content == None:
             return
@@ -77,12 +158,20 @@ def insert_message(chat_id: int, role: str, content: str):
 
         cursor = conn.cursor()
         cursor.execute("INSERT INTO messages (chat_id, role, content) VALUES (?, ?, ?)", (chat_id, role, content))
+
+        msg_id = cursor.lastrowid
+
         cursor.execute("UPDATE chats SET last_modified = CURRENT_TIMESTAMP where id = ?", (chat_id, ))
 
         chats = get_chats()
         for chat in chats:
             chat["active"] = (chat["id"] == state.current_chat_id)
         uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
+
+
+    if content != None and role != "system":
+        store_embeddings(chat_id, role, content, msg_id)
+        uprint(f"STORE EMBEDDINGS {content}", OutGoingDataType.LOG)
 
 def get_chat_messages(chat_id: int, limit: int = 20, before_id: int = float('inf')) -> List[Dict]:
     with sqlite3.connect(DB_PATH) as conn:
