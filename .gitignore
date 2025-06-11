@@ -16,3 +16,5 @@ __pycache__/
 
 /backend/garbage/
 /backend/storage/chat_memory.db
+
+/backend/storage/chroma_index/
