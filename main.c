@@ -146,10 +146,8 @@ static void output(webview_t w, void *arg)
             char *lineStart = buffer;
             char *newline;
             while ((newline = strchr(lineStart, '\n')) != NULL) {
-                printf("[LOG] %s\n", lineStart);
-                
                 *newline = '\0';
-                if (strncmp(lineStart, "{\"type\": \"log\"", 16) == 0) {
+                if (strncmp(lineStart, "{\"type\": \"log\"", 14) == 0) {
                     printf("[LOG] %s\n", lineStart);
                     lineStart = newline + 1;
                     continue;
