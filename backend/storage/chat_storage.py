@@ -63,7 +63,7 @@ def store_embeddings(chat_id: int, role: str, content: str, msg_id: int, tags: l
     def task(chat_id, role, content, msg_id, tags):
         embedding_response = state.client.embeddings.create(
             model="text-embedding-3-small",
-            input=content
+            input=f"Answer: {content}"
         )
         
         embedding = embedding_response.data[0].embedding
@@ -89,7 +89,7 @@ def store_embeddings(chat_id: int, role: str, content: str, msg_id: int, tags: l
         args=(chat_id, role, content, msg_id, tags)
     ).start()
 
-def query_embeddings(chat_id: int, content: str):
+def query_embeddings(chat_id: int, content: str, topK: int):
     global chroma_collection
 
     if chroma_collection is None:
@@ -102,12 +102,12 @@ def query_embeddings(chat_id: int, content: str):
     
     query_embedding = embedding_response.data[0].embedding
 
-    results = chroma_collection.query(query_embeddings=[query_embedding], n_results=10, include=["metadatas", "documents", "distances"])
+    results = chroma_collection.query(query_embeddings=[query_embedding], n_results=topK, include=["metadatas", "documents", "distances"])
 
     filtered_results = []
 
     for doc, meta, dist in zip(results['documents'][0], results['metadatas'][0], results['distances'][0]):
-        if meta['chat_id'] != chat_id:
+        if meta['chat_id'] != str(chat_id):
             filtered_results.append({
                 "document": doc,
                 "chat_id": meta['chat_id'],
@@ -173,7 +173,6 @@ def insert_message(chat_id: int, role: str, content: str):
 
         # TODO Add a simple filter for whether or not the message should be embedded
         store_embeddings(chat_id, role, content, msg_id)
-        uprint(f"STORE EMBEDDINGS {content}", OutGoingDataType.LOG)
 
 def get_chat_messages(chat_id: int, limit: int = 20, before_id: int = float('inf')) -> List[Dict]:
     with sqlite3.connect(DB_PATH) as conn:

@@ -5,13 +5,13 @@ import sys
 import os
 import json
 import io
-from config import MASTER_MODEL, MAX_FUNCTION_CALL_DEPTH, NUM_RECENT_MESSAGES_TO_KEEP, OS_NAME, NOW, SLAVE_MODEL, SUMMARY_TRIGGER_CHAR_COUNT
+from config import DISTANCE_THRESHOLD, MASTER_MODEL, MAX_FUNCTION_CALL_DEPTH, NUM_RECENT_MESSAGES_TO_KEEP, OS_NAME, NOW, SLAVE_MODEL, SUMMARY_TRIGGER_CHAR_COUNT, TOP_K
 import json
 from state import tool_definitions, tool_functions
 import threading
 from watcher import start_file_watcher, load_tools
 from uprint import OutGoingDataType, uprint
-from storage.chat_storage import delete_chat, init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats, rename_chat, save_chat_window, load_chat_window
+from storage.chat_storage import delete_chat, init_db, create_chat, insert_message, get_chat_messages, get_latest_chat_id, get_chats, query_embeddings, rename_chat, save_chat_window, load_chat_window
 import state
 
 
@@ -149,7 +149,6 @@ def summarize_messages(client: OpenAI):
     # Count characters
     char_count = sum(len(m["content"]) for m in to_summarize)
     if char_count < SUMMARY_TRIGGER_CHAR_COUNT:
-        uprint(f"Conversation not long enough {char_count}", OutGoingDataType.LOG)
         return state.messages  # Sliding window of conversation is too short to be summarized
 
     previous_summary = next((m for m in reversed(state.messages) 
@@ -311,7 +310,6 @@ def handle_types(type, payload, meta):
             else:
                 try:
                     new_id = int(payload)
-                    uprint(f"Switching to chat ID {new_id}", OutGoingDataType.LOG)
                     state.current_chat_id = new_id
                     state.messages = get_chat_messages(state.current_chat_id)
                     if not state.messages:
@@ -386,8 +384,6 @@ def handle_types(type, payload, meta):
             
             uprint(chats, OutGoingDataType.RETURN_ALL_CHATS)
 
-
-
 def chat():
     while True:
         data = json.loads(input())
@@ -408,11 +404,26 @@ def chat():
         # If needed, check for if we need to summarize here
         state.messages = summarize_messages(state.client)
         
+        # Get emphereal RAG messages
+        rag_results = query_embeddings(state.current_chat_id, payload, TOP_K)
+        filtered_rag_results = [r for r in rag_results if r['distance'] < DISTANCE_THRESHOLD]
+
+        uprint(f"[RETREIVED] {filtered_rag_results}", OutGoingDataType.LOG)
+        rag_messages = [
+            {
+                "role": "system",
+                "content": f"[RAG retrieved message from {r['role']}]: {r['document']}"
+            }
+            for r in filtered_rag_results
+        ]
+
         save_chat_window()
+
+        augmented_messages = rag_messages + state.messages
 
         response = state.client.chat.completions.create(
             model=MASTER_MODEL,
-            messages=state.messages,
+            messages=augmented_messages,
             tools=tool_definitions,
             tool_choice="auto"
         )
