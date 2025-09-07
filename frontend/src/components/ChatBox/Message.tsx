@@ -13,7 +13,7 @@ export default function Message({ message }: { message: IncomingData | OutgoingD
     return ""
   }
 
-  const [copyState, setCopyState] = useState("⧉ Copy")
+  const [copiedBlockId, setCopiedBlockId] = useState<string | null>(null)
   
   return (
     <div className="text-white">
@@ -112,28 +112,40 @@ export default function Message({ message }: { message: IncomingData | OutgoingD
                       {children}
                     </code>
                   ) : ( // code block
-                    <pre className="mb-4">
-                      <div className="bg-secondary flex items-center justify-between font-mono px-2 py-1 text-sm">
-                        <h5 className="text-primary-100">{className?.split("language-")}</h5>
-                        <button
-                          onClick={() => {
-                            if(copyState === "⧉ Copy") {
-                              setCopyState("✔ Copied")
-                              navigator.clipboard.writeText(String(children).trim())
-                              setTimeout(() => setCopyState("⧉ Copy"), 1500);
-                            }
-                          }}
-                          className="text-primary-100 text-xs px-2 py-0.5 rounded hover:bg-primary-600 transition"
-                        >
-                          {copyState}
-                        </button>
-                      </div>
-                      <div className=" bg-zinc-900 overflow-x-auto p-4 rounded text-sm">
-                        <code {...rest} className={twMerge(className, "overflow-x-auto")}>
-                        {children}
-                      </code>
-                      </div>
-                    </pre>
+                    (() => {
+                      const blockId = String(children).trim();
+                      const isCopied = copiedBlockId === blockId;
+                      
+                      return (
+                        <pre className="mb-4">
+                          <div className="bg-secondary flex items-center justify-between font-mono px-2 py-1 text-sm">
+                            <h5 className="text-primary-100">{className?.split("language-")}</h5>
+                            <button
+                              onClick={() => {
+                                if(!isCopied) {
+                                  setCopiedBlockId(blockId)
+                                  navigator.clipboard.writeText(String(children).trim())
+                                  setTimeout(() => setCopiedBlockId((prev) => {
+                                    if (prev == blockId) {
+                                      return null
+                                    }
+                                    return prev
+                                  }), 1500);
+                                }
+                              }}
+                              className="cursor-pointer text-primary-100 text-xs px-2 py-0.5 rounded hover:bg-primary-600 transition"
+                            >
+                              {isCopied ? "✔ Copied" : "⧉ Copy"}
+                            </button>
+                          </div>
+                          <div className=" bg-zinc-900 overflow-x-auto p-4 rounded text-sm">
+                            <code {...rest} className={twMerge(className, "overflow-x-auto")}>
+                            {children}
+                          </code>
+                          </div>
+                        </pre>
+                      );
+                    })()
                   );
                 },
               }}
