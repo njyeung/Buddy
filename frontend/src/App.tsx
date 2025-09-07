@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import type { OutgoingData, OutgoingDataType, IncomingData, Window as WindowInterface, Chat } from './interface';
 
 import Window from './components/Window' ;

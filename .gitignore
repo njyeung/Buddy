@@ -1,6 +1,8 @@
 /backend/.env
 /.vscode/
 
+*/venv
+
 *.env
 .cache
 
