@@ -63,7 +63,7 @@ def store_embeddings(chat_id: int, role: str, content: str, msg_id: int, tags: l
     def task(chat_id, role, content, msg_id, tags):
         embedding_response = state.client.embeddings.create(
             model="text-embedding-3-small",
-            input=f"Answer: {content}"
+            input=content
         )
         
         embedding = embedding_response.data[0].embedding

@@ -142,9 +142,11 @@ static void output(webview_t w, void *arg)
             memcpy(buffer + bufferLen, chunk, bytesRead);
             bufferLen += bytesRead;
             buffer[bufferLen] = '\0';
-
             char *lineStart = buffer;
             char *newline;
+
+            printf("[LOG] %s", lineStart);
+
             while ((newline = strchr(lineStart, '\n')) != NULL) {
                 *newline = '\0';
                 if (strncmp(lineStart, "{\"type\": \"log\"", 14) == 0) {
