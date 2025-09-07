@@ -171,6 +171,28 @@ static void output(webview_t w, void *arg)
     }
 #endif
 
+void build_frontend() {
+    printf("Checking if dist exists\n");
+
+    #ifdef _WIN32
+    struct stat st;
+    if(stat("frontend\\dist", &st) != 0) {
+        printf("Frontend dist not found. Building static files\n");
+
+        system("cd frontend && npm run build");
+    }
+    #else
+    struct stat st;
+    if (stat("frontend/dist", &st) != 0) {
+        printf("Frontend distnot found. Building static files\n");
+
+        system("cd frontend && npm run build");
+    }
+    #endif
+
+    printf("Static files built\n");
+}
+
 void setup_python_venv() {
     printf("Checking Python virtual environment\n");
     
@@ -192,7 +214,7 @@ void setup_python_venv() {
     if (stat("backend/venv", &st) != 0) {
         printf("Virtual environment not found. Creating venv\n");
         
-        system("cd backend && python3 -m venv venv");
+        system("cd backend && python -m venv venv");
 
         printf("Virtual environment created\n");
     }
@@ -216,6 +238,9 @@ int main()
         webview_navigate(w, "http://localhost:5173");
     }
     else {
+        // build static files if needed
+        build_frontend();
+
         // Serve static files with http server
         #ifdef _WIN32
         system("start /B cmd /C \"cd frontend\\dist && python -m http.server 8080\"");
