@@ -2,17 +2,17 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary-500: #1b2d48;
-  --color-primary-400: #2c456b;
-  --color-primary-300: #3c649f;
-  --color-primary-200: #4779c4;
-  --color-primary-100: #83aff0;
+  --color-primary-500: #362757;
+  --color-primary-400: #5d497f;
+  --color-primary-300: #a333d9;
+  --color-primary-200: #896ba3;
+  --color-primary-100: #b594c2;
 
-  --color-secondary: #333333;
+  --color-secondary: #356b86;
 }
 
 :root {
-  background-color: #1b2d48;
+  background-color: #362757;
 }
 
 /* Scrollbar thinning */

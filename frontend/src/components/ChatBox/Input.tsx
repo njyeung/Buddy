@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 export default function Input({ submitMessage }: { submitMessage: (s: string) => void }) {
   const [input, setInput] = useState('');

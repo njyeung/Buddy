@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { IncomingData } from "../../interface";
 import ToolMessage from "./ToolMessage";
 export default function ToolBox({messages}: {messages: IncomingData[]}) {

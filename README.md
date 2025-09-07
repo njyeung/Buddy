@@ -160,6 +160,8 @@ In addition, projects help users organize related chats in a single folder.
 
 For enhanced contextual awareness across chats, Buddy implements RAG. However, instead of using RAG to retrieve messages from the current chat (which is already summarized using the sliding window approach—see section 4), we pull semantically similar messages from other chats within the same project (or globally, depending on config).
 
+> For tuning RAG behavior, configure RAG DISTANCE_THRESHOLD and TOP_K in config.py
+
 This enables the language model to incorporate meaningful information from other interactions and deliver more intelligent, context-aware responses, while also letting the user control what it should “remember”, and not flooding the user profile with information that might not be relevant to every conversation.
 
 <ol type="a">
