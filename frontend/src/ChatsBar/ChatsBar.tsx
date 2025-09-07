@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { Chat, OutgoingDataType } from "../interface";
 import ScrollableChatName from "./ScrollableChatName";
 import ChatSettings from "./ChatSettings";
