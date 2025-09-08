@@ -3,26 +3,22 @@ Learning project build upon the GPT api
 
 ## TODO (for me)
 * Add emphereal chat. A chat that resets based on time so you can have it always open like jarvis. 
-* RAG and vector db
+* RAG and vector db (Basically done, idk)
 * User profile, since this is distilled asynchronously, we can try using a local model
 * Projects table (collection of chats, allow scoped RAG on chats inside a project in config.py)
-* ~~Write UNIX C piping for the bridge, rn it’s just windows code~~ ✅
-* ~~Automatic prompting for api keys broken ever since I added frontend~~ ✅
-* Add webview as submodule in git
+* Add webview as submodule
 * Frontend resizable recursive window components
   * This is somehow harder than it looks.
   * Stumped llm count: (2) ~~o4-mini-high~~ ~~Sonnet 4~~
 * write_file tool should open up a text editor for the user
-* ~~Link up renaming and deleting chats~~
 * Give buddy a personality
-* Text to speech and voice recognition
-* ~~Store summary threads in DB~~ ✅
+* Aca ne TTS and speech recognition
+  * Hook up the aca ne voice module. Implement a speech detection.
 * Shell command pass-through; Intercept user shell commands such as cd and ls and exec them in the shell. Return the result back into the chat.
   * { type: “user-message”, payload: “what’s the weather today?” } <- passed through to python backend
   * { type: “user-message”, payload: “cd /home” } <- captured by C bridge 
   * Implement PTY within the C bridge. This gives us a persistent long-lived shell for each OS. This is fundamentally how electron apps like VSCode implement the terminal. 
   * PTY for UNIX <pty.h>, ConPTY for Windows
-
 
 ## Getting Started
 
@@ -160,13 +156,15 @@ In addition, projects help users organize related chats in a single folder.
 
 For enhanced contextual awareness across chats, Buddy implements RAG. However, instead of using RAG to retrieve messages from the current chat (which is already summarized using the sliding window approach—see section 4), we pull semantically similar messages from other chats within the same project (or globally, depending on config).
 
+> For tuning RAG behavior, configure RAG DISTANCE_THRESHOLD and TOP_K in config.py
+
 This enables the language model to incorporate meaningful information from other interactions and deliver more intelligent, context-aware responses, while also letting the user control what it should “remember”, and not flooding the user profile with information that might not be relevant to every conversation.
 
 <ol type="a">
   <li>Important messages are vectorized and stored in a vector DB along with metadata tags (see figure a).</li>
   <li>When a user inputs a new message, it is vectorized and used to query the vector DB for semantically relevant messages where <code>chat_id != current_chat_id</code> and <code>project_id == current_project_id</code>.</li>
-  <li>Each matching vector includes a metadata tag with the original <code>message_id</code>, which is used to retrieve the original message from the SQL database.</li>
-  <li>These retrieved messages are injected into the prompt as ephemeral memory.</li>
+  <li>Each matching vector includes a metadata tag with the original <code>message_id, chat_id, and project_id</code>, as well as a document of the original message</li>
+  <li>These retrieved documents are injected into the prompt as ephemeral memory.</li>
 </ol>
 
 > These retrieved messages are not persisted and do not affect the conversation history—they’re injected just-in-time to influence the model for a better response.

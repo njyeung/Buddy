@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import type { Chat, OutgoingDataType } from "../interface";
 import ScrollableChatName from "./ScrollableChatName";
 import ChatSettings from "./ChatSettings";
@@ -59,11 +60,10 @@ export default function ChatsBar({ chats, sendData, openModal, closeModal } : { 
           onClick={()=>{
             sendData("switch-chat", null)
           }} 
-          className="p-0.5 border-2 border-secondary group hover:bg-primary-200 transition bg-secondary hover:cursor-pointer rounded-lg">
-            <button className="text-lg pointer-events-none">💬</button>
+          className="p-1 my-2 border-2 border-secondary group hover:bg-primary-200 transition bg-secondary hover:cursor-pointer rounded-lg">
+            <MessageSquare size={20} className="pointer-events-none" />
           </div>
         </div>
-        
         
         <ul>
         {
