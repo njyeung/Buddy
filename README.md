@@ -3,26 +3,22 @@ Learning project build upon the GPT api
 
 ## TODO (for me)
 * Add emphereal chat. A chat that resets based on time so you can have it always open like jarvis. 
-* RAG and vector db
+* RAG and vector db (Basically done, idk)
 * User profile, since this is distilled asynchronously, we can try using a local model
 * Projects table (collection of chats, allow scoped RAG on chats inside a project in config.py)
-* ~~Write UNIX C piping for the bridge, rn it’s just windows code~~ ✅
-* ~~Automatic prompting for api keys broken ever since I added frontend~~ ✅
-* Add webview as submodule in git
+* Add webview as submodule
 * Frontend resizable recursive window components
   * This is somehow harder than it looks.
   * Stumped llm count: (2) ~~o4-mini-high~~ ~~Sonnet 4~~
 * write_file tool should open up a text editor for the user
-* ~~Link up renaming and deleting chats~~
 * Give buddy a personality
-* Text to speech and voice recognition
-* ~~Store summary threads in DB~~ ✅
+* Aca ne TTS and speech recognition
+  * Hook up the aca ne voice module. Implement a speech detection.
 * Shell command pass-through; Intercept user shell commands such as cd and ls and exec them in the shell. Return the result back into the chat.
   * { type: “user-message”, payload: “what’s the weather today?” } <- passed through to python backend
   * { type: “user-message”, payload: “cd /home” } <- captured by C bridge 
   * Implement PTY within the C bridge. This gives us a persistent long-lived shell for each OS. This is fundamentally how electron apps like VSCode implement the terminal. 
   * PTY for UNIX <pty.h>, ConPTY for Windows
-
 
 ## Getting Started
 
