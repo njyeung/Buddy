@@ -464,7 +464,6 @@ if __name__ == "__main__":
 
     # API key not found, prompt user for one
     api_key = os.environ.get("OPENAI")
-
     if not api_key:
         uprint("OPENAI not found in environment. Please paste your OpenAI API key", OutGoingDataType.PROMPT, "OPENAI")
     else:

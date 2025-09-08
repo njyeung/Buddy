@@ -233,7 +233,9 @@ int main()
             close(stdout_pipe[0]);
 
             // Exec python backend
-            execlp("python3", "python3", "./backend/main.py", NULL);
+            setenv("GDK_BACKEND", "wayland", 1);
+            execlp("./backend/venv/bin/python", "python", "./backend/main.py", NULL);
+            // execlp("python3", "python3", "./backend/main.py", NULL);
 
             perror("exec failed");
             exit(1);
