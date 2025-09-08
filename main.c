@@ -6,9 +6,12 @@
 #ifdef _WIN32
     #define WEBVIEW_WINAPI
     #include <windows.h>
+    #include <direct.h>
+    #include <sys/stat.h>
 #else
     #include <unistd.h>
     #include <pthread.h>
+    #include <sys/stat.h>
 #endif
 
 typedef struct
@@ -142,14 +145,14 @@ static void output(webview_t w, void *arg)
             memcpy(buffer + bufferLen, chunk, bytesRead);
             bufferLen += bytesRead;
             buffer[bufferLen] = '\0';
-
             char *lineStart = buffer;
             char *newline;
+
+            printf("[LOG] %s", lineStart);
+
             while ((newline = strchr(lineStart, '\n')) != NULL) {
-                printf("[LOG] %s\n", lineStart);
-                
                 *newline = '\0';
-                if (strncmp(lineStart, "{\"type\": \"log\"", 16) == 0) {
+                if (strncmp(lineStart, "{\"type\": \"log\"", 14) == 0) {
                     printf("[LOG] %s\n", lineStart);
                     lineStart = newline + 1;
                     continue;
@@ -168,12 +171,89 @@ static void output(webview_t w, void *arg)
     }
 #endif
 
+void build_frontend() {
+    printf("Checking if dist exists\n");
+
+    #ifdef _WIN32
+    struct stat st;
+    if(stat("frontend\\dist", &st) != 0) {
+        printf("Frontend dist not found. Building static files\n");
+
+        system("cd frontend && npm run build");
+    }
+    #else
+    struct stat st;
+    if (stat("frontend/dist", &st) != 0) {
+        printf("Frontend distnot found. Building static files\n");
+
+        system("cd frontend && npm run build");
+    }
+    #endif
+
+    printf("Static files built\n");
+}
+
+void setup_python_venv() {
+    printf("Checking Python virtual environment\n");
+    
+    #ifdef _WIN32
+    struct stat st;
+    if (stat("backend\\venv", &st) != 0) {
+        printf("Virtual environment not found. Creating venv\n");
+
+        system("cd backend && python -m venv venv");
+        
+        printf("Virtual environment created\n");
+    }
+    printf("Installing/updating dependencies...\n");
+    
+    system("cd backend && call venv\\Scripts\\activate && pip install -r requirements.txt");
+    
+    #else
+    struct stat st;
+    if (stat("backend/venv", &st) != 0) {
+        printf("Virtual environment not found. Creating venv\n");
+        
+        system("cd backend && python -m venv venv");
+
+        printf("Virtual environment created\n");
+    }
+    printf("Installing/updating dependencies\n");
+    
+    system("cd backend && source venv/bin/activate && pip install -r requirements.txt");
+    #endif
+    
+    printf("Python environment ready. Starting backend\n");
+}
+
 int main()
 {
+    char* dev_mode = getenv("DEV_MODE");
+
     webview_t w = webview_create(0, NULL);
     webview_set_title(w, "Buddy");
     webview_set_size(w, 600, 800, WEBVIEW_HINT_NONE);
-    webview_navigate(w, "http://localhost:5173");
+
+    if(dev_mode && strcmp(dev_mode, "1") == 0) {
+        webview_navigate(w, "http://localhost:5173");
+    }
+    else {
+        // build static files if needed
+        build_frontend();
+
+        // Serve static files with http server
+        #ifdef _WIN32
+        system("start /B cmd /C \"cd frontend\\dist && python -m http.server 8080\"");
+        Sleep(2000);
+        #else
+        system("cd frontend/dist && python3 -m http.server 8080 &");
+        sleep(2);
+        #endif
+        webview_navigate(w, "http://localhost:8080");
+    }
+
+    // Set up venv if one doesn't exist
+    setup_python_venv();
 
     PipeHandles pipeHandles;
 
@@ -195,7 +275,7 @@ int main()
         si.hStdInput = hChildStdinRd;
         si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 
-        char cmd[] = "python .\\backend\\main.py";
+        char cmd[] = "cmd /C \"cd backend && call venv\\Scripts\\activate && python main.py\"";
 
         if (!CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
         {
@@ -232,10 +312,9 @@ int main()
             close(stdin_pipe[1]);
             close(stdout_pipe[0]);
 
-            // Exec python backend
+            // Exec python backend with venv
             setenv("GDK_BACKEND", "wayland", 1);
-            execlp("./backend/venv/bin/python", "python", "./backend/main.py", NULL);
-            // execlp("python3", "python3", "./backend/main.py", NULL);
+            execlp("bash", "bash", "-c", "cd backend && source venv/bin/activate && python3 main.py", NULL);
 
             perror("exec failed");
             exit(1);
