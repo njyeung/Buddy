@@ -19,6 +19,7 @@
     #include <sys/socket.h>
     #include <netinet/in.h>
     #include <arpa/inet.h>
+    #include <fcntl.h>
 #endif
 
 // Global variables for cleanup
@@ -27,40 +28,93 @@ pid_t audio_service_pid = 0;
 pid_t python_backend_pid = 0;
 char* dev_mode = NULL;
 
+// Audio service pipe handles
+#ifdef _WIN32
+HANDLE audio_pipe = INVALID_HANDLE_VALUE;
+#else
+int audio_write_fd = -1;
+#endif
+
 void cleanup_servers() {
     printf("\nCleaning up servers...\n");
     
     #ifdef _WIN32
-    // Windows cleanup - kill processes by name/port
-    system("taskkill /f /im python.exe 2>nul");
-    if(dev_mode && strcmp(dev_mode, "1") == 0) {
-        system("for /f \"tokens=5\" %a in ('netstat -aon ^| find \":8080\"') do taskkill /f /pid %a 2>nul");
-    }
-    system("for /f \"tokens=5\" %a in ('netstat -aon ^| find \":8081\"') do taskkill /f /pid %a 2>nul");
-    #else
-    // Linux cleanup - kill tracked PIDs
+    // Windows cleanup, kill tracked processes and by port
+    
+    // Kill audio service
     if (audio_service_pid > 0) {
         printf("Stopping audio service (PID: %d)\n", audio_service_pid);
-        kill(audio_service_pid, SIGTERM);
-        waitpid(audio_service_pid, NULL, WNOHANG);
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "taskkill /f /pid %d /t 2>nul", audio_service_pid);
+        system(cmd);
+        audio_service_pid = 0;
     }
-    if(dev_mode && strcmp(dev_mode, "1") == 0) {
+    
+    // Kill python backend (cmd wrapper might not propagate termination)
+    if (python_backend_pid > 0) {
+        printf("Stopping python backend (PID: %d)\n", python_backend_pid);
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "taskkill /f /pid %d /t 2>nul", python_backend_pid);
+        system(cmd);
+        python_backend_pid = 0;
+    }
+    
+    // Close Windows audio pipe
+    if (audio_pipe != INVALID_HANDLE_VALUE) {
+        CloseHandle(audio_pipe);
+        audio_pipe = INVALID_HANDLE_VALUE;
+    }
+    
+    // Fallback: kill processes by port  
+    system("for /f \"tokens=5\" %a in ('netstat -aon ^| find \":8081\"') do taskkill /f /pid %a 2>nul");
+    if (!(dev_mode && strcmp(dev_mode, "1") == 0)) {
+        system("for /f \"tokens=5\" %a in ('netstat -aon ^| find \":8080\"') do taskkill /f /pid %a 2>nul");
+    }
+    
+    #else
+    // Linux cleanup, terminate tracked PIDs
+    
+    // kill audio service process
+    if (audio_service_pid > 0) {
+        printf("Stopping audio service (PID: %d)\n", audio_service_pid);
+        kill(audio_service_pid, SIGKILL);
+        waitpid(audio_service_pid, NULL, 0);
+        audio_service_pid = 0;
+    }
+    
+    // kill frontend server (prod mode only, dev mode uses external server)
+    if (!(dev_mode && strcmp(dev_mode, "1") == 0)) {
         if (frontend_server_pid > 0) {
             printf("Stopping frontend server (PID: %d)\n", frontend_server_pid);
-            kill(frontend_server_pid, SIGTERM);
-            waitpid(frontend_server_pid, NULL, WNOHANG);
+            kill(frontend_server_pid, SIGKILL);
+            waitpid(frontend_server_pid, NULL, 0);
+            frontend_server_pid = 0;
         }
     }
     
+    // kill python backend
     if (python_backend_pid > 0) {
         printf("Stopping python backend (PID: %d)\n", python_backend_pid);
         kill(python_backend_pid, SIGTERM);
-        waitpid(python_backend_pid, NULL, WNOHANG);
+        waitpid(python_backend_pid, NULL, 0);
+        python_backend_pid = 0;
     }
     
-    // Fallback: kill anything on our ports
-    system("pkill -f 'python.*main.py' 2>/dev/null");
+    // Fallback: kill any remaining processes
+    system("pkill -f 'python.*audio-service.*main.py' 2>/dev/null");
+    system("pkill -f 'python.*backend.*main.py' 2>/dev/null");
     system("pkill -f 'python.*http.server.*8080' 2>/dev/null");
+    
+    // Close audio pipe
+    if (audio_write_fd != -1) {
+        close(audio_write_fd);
+        audio_write_fd = -1;
+    }
+    
+    // Clean up named pipe
+    unlink("/tmp/buddy_to_audio");
+    
+    printf("All processes cleaned up\n");
     #endif
 }
 
@@ -113,58 +167,30 @@ int port_in_use(int port) {
     #endif
 }
 
+
 void send_text_to_audio_service(const char* text) {
-    // Create a temporary file with the JSON payload to avoid shell escaping issues
     #ifdef _WIN32
-    char temp_file[256];
-    snprintf(temp_file, sizeof(temp_file), "%s\\buddy_tts_%d.json", getenv("TEMP") ? getenv("TEMP") : "C:\\temp", (int)GetCurrentProcessId());
+    if (audio_pipe == INVALID_HANDLE_VALUE) return;
     
-    FILE* f = fopen(temp_file, "w");
-    if (!f) return;
-    fprintf(f, "{\"text\": \"");
+    // Send simple command: "TTS:text\n"
+    char msg[4096];
+    snprintf(msg, sizeof(msg), "TTS:%s\n", text);
     
-    // Escape JSON special characters
-    for (const char* p = text; *p; p++) {
-        if (*p == '"' || *p == '\\') {
-            fputc('\\', f);
-        }
-        fputc(*p, f);
+    DWORD written;
+    if (!WriteFile(audio_pipe, msg, strlen(msg), &written, NULL)) {
+        printf("Failed to send to audio service\n");
     }
-    fprintf(f, "\"}");
-    fclose(f);
-    
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd), 
-        "curl -s -X POST http://127.0.0.1:8081/api/tts "
-        "-H \"Content-Type: application/json\" "
-        "-d @\"%s\" "
-        "-o nul 2>nul && del \"%s\" &", temp_file, temp_file);
-    system(cmd);
     #else
-    char temp_file[256];
-    snprintf(temp_file, sizeof(temp_file), "/tmp/buddy_tts_%d.json", getpid());
+    if (audio_write_fd == -1) return;
     
-    FILE* f = fopen(temp_file, "w");
-    if (!f) return;
-    fprintf(f, "{\"text\": \"");
+    // Send simple command: "TTS:text\n"
+    char msg[4096];
+    snprintf(msg, sizeof(msg), "TTS:%s\n", text);
     
-    // Escape JSON special characters
-    for (const char* p = text; *p; p++) {
-        if (*p == '"' || *p == '\\') {
-            fputc('\\', f);
-        }
-        fputc(*p, f);
+    ssize_t written = write(audio_write_fd, msg, strlen(msg));
+    if (written == -1) {
+        printf("Failed to send to audio service\n");
     }
-    fprintf(f, "\"}");
-    fclose(f);
-    
-    char cmd[512];
-    snprintf(cmd, sizeof(cmd), 
-        "curl -s -X POST http://127.0.0.1:8081/api/tts "
-        "-H 'Content-Type: application/json' "
-        "-d @%s "
-        ">/dev/null 2>&1; rm %s &", temp_file, temp_file);
-    system(cmd);
     #endif
 }
 
@@ -491,10 +517,24 @@ int start_audio_service() {
     }
     
     printf("Audio service environment ready. Starting audio service\n");
-    if (system("start /B cmd /C \"cd audio-service && call venv\\Scripts\\activate && python main.py\"") != 0) {
-        printf("Could not start audio service\n");
+    
+    // Use CreateProcess to track audio service PID
+    STARTUPINFO si_audio = {sizeof(si_audio)};
+    PROCESS_INFORMATION pi_audio;
+    char audio_cmd[] = "cmd /C \"cd audio-service && call venv\\Scripts\\activate && python main.py\"";
+    
+    if (!CreateProcess(NULL, audio_cmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si_audio, &pi_audio)) {
+        fprintf(stderr, "CreateProcess failed for audio service: %lu\n", GetLastError());
         exit(1);
     }
+    
+    // Store audio service PID for cleanup
+    audio_service_pid = pi_audio.dwProcessId;
+    
+    // Close handles we don't need
+    CloseHandle(pi_audio.hProcess);
+    CloseHandle(pi_audio.hThread);
+    
     Sleep(2000);
     #else
     // Check if audio-service directory exists  
@@ -524,10 +564,19 @@ int start_audio_service() {
     }
     
     printf("Audio service environment ready. Starting audio service\n");
-    if (system("cd audio-service && source venv/bin/activate && python3 main.py &") != 0) {
-        printf("Could not start audio service\n");
+    
+    audio_service_pid = fork();
+    if (audio_service_pid == 0) {
+        // Child process
+        chdir("audio-service");
+        execlp("bash", "bash", "-c", "source venv/bin/activate && python3 main.py", NULL);
+        perror("exec failed for audio service");
+        exit(1);
+    } else if (audio_service_pid < 0) {
+        perror("Fork failed for audio service");
         exit(1);
     }
+    
     sleep(2);
     #endif
     
@@ -559,11 +608,63 @@ int main()
         }
     }
     
+    // Setup audio pipe BEFORE starting audio service
+    #ifdef _WIN32
+    printf("Setting up Windows audio pipe...\n");
+    // Create named pipe for Windows
+    audio_pipe = CreateNamedPipe(
+        "\\\\.\\pipe\\buddy_to_audio",
+        PIPE_ACCESS_OUTBOUND,
+        PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+        1,
+        4096,
+        4096,
+        0,
+        NULL
+    );
+    if (audio_pipe == INVALID_HANDLE_VALUE) {
+        printf("Failed to create Windows audio pipe\n");
+        exit(1);
+    }
+    printf("Windows audio pipe created\n");
+    #else
+    printf("Setting up audio pipe...\n");
+    // Create named pipe
+    if (mkfifo("/tmp/buddy_to_audio", 0666) != 0) {
+        // Pipe might already exist, try to remove and recreate
+        unlink("/tmp/buddy_to_audio");
+        if (mkfifo("/tmp/buddy_to_audio", 0666) != 0) {
+            printf("Failed to create audio pipe\n");
+            exit(1);
+        }
+    }
+    printf("Audio pipe created\n");
+    #endif
+
     if (start_audio_service() != 0) {
         printf("could not start audio service\n");
         exit(1);
     }
 
+    // Now open the pipe for writing (this will block until audio service connects)
+    #ifdef _WIN32
+    printf("Waiting for audio service to connect to Windows pipe...\n");
+    if (!ConnectNamedPipe(audio_pipe, NULL)) {
+        if (GetLastError() != ERROR_PIPE_CONNECTED) {
+            printf("Failed to connect Windows audio pipe\n");
+            exit(1);
+        }
+    }
+    printf("Windows audio pipe ready for communication\n");
+    #else
+    printf("Waiting for audio service to connect to pipe...\n");
+    audio_write_fd = open("/tmp/buddy_to_audio", O_WRONLY);
+    if (audio_write_fd == -1) {
+        printf("Failed to open audio pipe for writing\n");
+        exit(1);
+    }
+    printf("Audio pipe ready for communication\n");
+    #endif
 
     setenv("GDK_BACKEND", "wayland", 1);
     setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1", 1);
@@ -591,8 +692,15 @@ int main()
         }
         Sleep(2000);
         #else
-        if (system("cd frontend/dist && python3 -m http.server 8080 --bind 127.0.0.1 &") != 0) {
-            printf("could not start server\n");
+        frontend_server_pid = fork();
+        if (frontend_server_pid == 0) {
+            // Child process
+            chdir("frontend/dist");
+            execlp("python3", "python3", "-m", "http.server", "8080", "--bind", "127.0.0.1", NULL);
+            perror("exec failed for frontend server");
+            exit(1);
+        } else if (frontend_server_pid < 0) {
+            perror("Fork failed for frontend server");
             exit(1);
         }
         sleep(2);
@@ -637,6 +745,9 @@ int main()
 
         CloseHandle(hChildStdoutWr);
         CloseHandle(hChildStdinRd);
+        
+        // Store backend PID for cleanup
+        python_backend_pid = pi.dwProcessId;
 
         pipeHandles.stdinWrite = hChildStdinWr;
         pipeHandles.stdoutRead = hChildStdoutRd;
@@ -684,7 +795,6 @@ int main()
     #endif
 
     pipeHandles.w = w;
-
 
     // Create thread to listen to python backend
     #ifdef _WIN32
