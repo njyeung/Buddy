@@ -1,18 +1,212 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <webview/webview.h>
 
 #ifdef _WIN32
     #define WEBVIEW_WINAPI
     #include <windows.h>
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
     #include <direct.h>
     #include <sys/stat.h>
 #else
     #include <unistd.h>
     #include <pthread.h>
     #include <sys/stat.h>
+    #include <sys/wait.h>
+    #include <sys/socket.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
 #endif
+
+// Global variables for cleanup
+pid_t frontend_server_pid = 0;
+pid_t audio_service_pid = 0;
+pid_t python_backend_pid = 0;
+char* dev_mode = NULL;
+
+void cleanup_servers() {
+    printf("\nCleaning up servers...\n");
+    
+    #ifdef _WIN32
+    // Windows cleanup - kill processes by name/port
+    system("taskkill /f /im python.exe 2>nul");
+    if(dev_mode && strcmp(dev_mode, "1") == 0) {
+        system("for /f \"tokens=5\" %a in ('netstat -aon ^| find \":8080\"') do taskkill /f /pid %a 2>nul");
+    }
+    system("for /f \"tokens=5\" %a in ('netstat -aon ^| find \":8081\"') do taskkill /f /pid %a 2>nul");
+    #else
+    // Linux cleanup - kill tracked PIDs
+    if (audio_service_pid > 0) {
+        printf("Stopping audio service (PID: %d)\n", audio_service_pid);
+        kill(audio_service_pid, SIGTERM);
+        waitpid(audio_service_pid, NULL, WNOHANG);
+    }
+    if(dev_mode && strcmp(dev_mode, "1") == 0) {
+        if (frontend_server_pid > 0) {
+            printf("Stopping frontend server (PID: %d)\n", frontend_server_pid);
+            kill(frontend_server_pid, SIGTERM);
+            waitpid(frontend_server_pid, NULL, WNOHANG);
+        }
+    }
+    
+    if (python_backend_pid > 0) {
+        printf("Stopping python backend (PID: %d)\n", python_backend_pid);
+        kill(python_backend_pid, SIGTERM);
+        waitpid(python_backend_pid, NULL, WNOHANG);
+    }
+    
+    // Fallback: kill anything on our ports
+    system("pkill -f 'python.*main.py' 2>/dev/null");
+    system("pkill -f 'python.*http.server.*8080' 2>/dev/null");
+    #endif
+}
+
+void signal_handler(int sig) {
+    printf("\nShutting down gracefully...\n");
+    cleanup_servers();
+    exit(0);
+}
+
+int port_in_use(int port) {
+    #ifdef _WIN32
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+    
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) {
+        WSACleanup();
+        return 0;
+    }
+    
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = htons(port);
+    
+    int result = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+    closesocket(sock);
+    WSACleanup();
+    
+    // port in use if bind failed
+    return result != 0;
+
+    #else
+    
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        return 0;
+    }
+    
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    addr.sin_port = htons(port);
+    
+    int result = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+    close(sock);
+    
+    // Port in use if bind failed
+    return result != 0; 
+    #endif
+}
+
+void send_text_to_audio_service(const char* text) {
+    // Create a temporary file with the JSON payload to avoid shell escaping issues
+    #ifdef _WIN32
+    char temp_file[256];
+    snprintf(temp_file, sizeof(temp_file), "%s\\buddy_tts_%d.json", getenv("TEMP") ? getenv("TEMP") : "C:\\temp", (int)GetCurrentProcessId());
+    
+    FILE* f = fopen(temp_file, "w");
+    if (!f) return;
+    fprintf(f, "{\"text\": \"");
+    
+    // Escape JSON special characters
+    for (const char* p = text; *p; p++) {
+        if (*p == '"' || *p == '\\') {
+            fputc('\\', f);
+        }
+        fputc(*p, f);
+    }
+    fprintf(f, "\"}");
+    fclose(f);
+    
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), 
+        "curl -s -X POST http://127.0.0.1:8081/api/tts "
+        "-H \"Content-Type: application/json\" "
+        "-d @\"%s\" "
+        "-o nul 2>nul && del \"%s\" &", temp_file, temp_file);
+    system(cmd);
+    #else
+    char temp_file[256];
+    snprintf(temp_file, sizeof(temp_file), "/tmp/buddy_tts_%d.json", getpid());
+    
+    FILE* f = fopen(temp_file, "w");
+    if (!f) return;
+    fprintf(f, "{\"text\": \"");
+    
+    // Escape JSON special characters
+    for (const char* p = text; *p; p++) {
+        if (*p == '"' || *p == '\\') {
+            fputc('\\', f);
+        }
+        fputc(*p, f);
+    }
+    fprintf(f, "\"}");
+    fclose(f);
+    
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), 
+        "curl -s -X POST http://127.0.0.1:8081/api/tts "
+        "-H 'Content-Type: application/json' "
+        "-d @%s "
+        ">/dev/null 2>&1; rm %s &", temp_file, temp_file);
+    system(cmd);
+    #endif
+}
+
+// Simple function to check if message is assistant-message and extract payload
+char* extract_assistant_message(const char* json_line) {
+    // Look for "type": "assistant-message"
+    if (strstr(json_line, "\"type\": \"assistant-message\"") == NULL) {
+        return NULL;
+    }
+    
+    // Find payload field
+    const char* payload_start = strstr(json_line, "\"payload\": \"");
+    if (payload_start == NULL) {
+        return NULL;
+    }
+    
+    payload_start += 12; // Move past "payload": "
+    
+    // Find end of payload (next unescaped quote)
+    const char* payload_end = payload_start;
+    while (*payload_end && *payload_end != '"') {
+        if (*payload_end == '\\' && *(payload_end + 1)) {
+            payload_end += 2; // Skip escaped character
+        } else {
+            payload_end++;
+        }
+    }
+    
+    if (*payload_end != '"') {
+        return NULL;
+    }
+    
+    // Extract payload text
+    size_t len = payload_end - payload_start;
+    char* result = malloc(len + 1);
+    if (!result) return NULL;
+    
+    strncpy(result, payload_start, len);
+    result[len] = '\0';
+    
+    return result;
+}
 
 typedef struct
 {
@@ -108,6 +302,15 @@ static void output(webview_t w, void *arg)
                     lineStart = newline + 1;
                     continue;
                 }
+                
+                // Check if this is an assistant message and send to audio service
+                char* assistant_text = extract_assistant_message(lineStart);
+                if (assistant_text) {
+                    printf("[TTS] Sending to audio service: %s\n", assistant_text);
+                    send_text_to_audio_service(assistant_text);
+                    free(assistant_text);
+                }
+                
                 webview_dispatch(w, output, _strdup(lineStart));
                 lineStart = newline + 1;
             }
@@ -157,6 +360,15 @@ static void output(webview_t w, void *arg)
                     lineStart = newline + 1;
                     continue;
                 }
+                
+                // Check if this is an assistant message and send to audio service
+                char* assistant_text = extract_assistant_message(lineStart);
+                if (assistant_text) {
+                    printf("[TTS] Sending to audio service: %s\n", assistant_text);
+                    send_text_to_audio_service(assistant_text);
+                    free(assistant_text);
+                }
+                
                 webview_dispatch(w, output, strdup(lineStart));
                 lineStart = newline + 1;
             }
@@ -171,7 +383,7 @@ static void output(webview_t w, void *arg)
     }
 #endif
 
-void build_frontend() {
+int build_frontend() {
     printf("Checking if dist exists\n");
 
     #ifdef _WIN32
@@ -179,21 +391,29 @@ void build_frontend() {
     if(stat("frontend\\dist", &st) != 0) {
         printf("Frontend dist not found. Building static files\n");
 
-        system("cd frontend && npm run build");
+        int err = system("cd frontend && npm install && npm run build");
+        if(!err) {
+            return err;
+        }
     }
     #else
     struct stat st;
     if (stat("frontend/dist", &st) != 0) {
         printf("Frontend distnot found. Building static files\n");
 
-        system("cd frontend && npm run build");
+        int err = system("cd frontend && npm install && npm run build");
+        if(!err) {
+            return err;
+        }
     }
     #endif
 
     printf("Static files built\n");
+
+    return 0;
 }
 
-void setup_python_venv() {
+int setup_python_venv() {
     printf("Checking Python virtual environment\n");
     
     #ifdef _WIN32
@@ -201,34 +421,153 @@ void setup_python_venv() {
     if (stat("backend\\venv", &st) != 0) {
         printf("Virtual environment not found. Creating venv\n");
 
-        system("cd backend && python -m venv venv");
-        
+        int err = system("cd backend && python -m venv venv");
+        if (!err) {
+            return err;
+        }
         printf("Virtual environment created\n");
     }
     printf("Installing/updating dependencies...\n");
     
     system("cd backend && call venv\\Scripts\\activate && pip install -r requirements.txt");
-    
+    if (!err) {
+        return err;
+    }
+
     #else
+    
     struct stat st;
     if (stat("backend/venv", &st) != 0) {
         printf("Virtual environment not found. Creating venv\n");
         
-        system("cd backend && python -m venv venv");
+        int err = system("cd backend && python -m venv venv");
+        if (!err) {
+            return err;
+        }
 
         printf("Virtual environment created\n");
     }
     printf("Installing/updating dependencies\n");
     
-    system("cd backend && source venv/bin/activate && pip install -r requirements.txt");
+    int err = system("cd backend && source venv/bin/activate && pip install -r requirements.txt");
+    if (!err) {
+        return err;
+    }
     #endif
     
     printf("Python environment ready. Starting backend\n");
+
+    return 0;
+}
+
+int start_audio_service() {
+    printf("Checking audio service virtual environment\n");
+    
+    #ifdef _WIN32
+    // Check if audio-service directory exists
+    struct stat st;
+    if (stat("audio-service", &st) != 0) {
+        printf("Audio service directory not found\n");
+        exit(1);
+    }
+    
+    // Check if venv exists, create if not
+    if (stat("audio-service\\venv", &st) != 0) {
+        printf("Audio service virtual environment not found. Creating venv\n");
+        
+        int err = system("cd audio-service && python -m venv venv");
+        if (err != 0) {
+            printf("Could not create audio service venv\n");
+            exit(1);
+        }
+        printf("Audio service virtual environment created\n");
+    }
+    
+    printf("Installing/updating audio service dependencies\n");
+    int err = system("cd audio-service && call venv\\Scripts\\activate && pip install -r requirements.txt");
+    if (err != 0) {
+        printf("Could not install audio service dependencies\n");
+        exit(1);
+    }
+    
+    printf("Audio service environment ready. Starting audio service\n");
+    if (system("start /B cmd /C \"cd audio-service && call venv\\Scripts\\activate && python main.py\"") != 0) {
+        printf("Could not start audio service\n");
+        exit(1);
+    }
+    Sleep(2000);
+    #else
+    // Check if audio-service directory exists  
+    struct stat st;
+    if (stat("audio-service", &st) != 0) {
+        printf("Audio service directory not found\n");
+        exit(1);
+    }
+    
+    // Check if venv exists, create if not
+    if (stat("audio-service/venv", &st) != 0) {
+        printf("Audio service virtual environment not found. Creating venv\n");
+        
+        int err = system("cd audio-service && python3 -m venv venv");
+        if (err != 0) {
+            printf("Could not create audio service venv\n");
+            exit(1);
+        }
+        printf("Audio service virtual environment created\n");
+    }
+    
+    printf("Installing/updating audio service dependencies\n");
+    int err = system("cd audio-service && source venv/bin/activate && pip install -r requirements.txt");
+    if (err != 0) {
+        printf("Could not install audio service dependencies\n");
+        exit(1);
+    }
+    
+    printf("Audio service environment ready. Starting audio service\n");
+    if (system("cd audio-service && source venv/bin/activate && python3 main.py &") != 0) {
+        printf("Could not start audio service\n");
+        exit(1);
+    }
+    sleep(2);
+    #endif
+    
+    printf("Audio service started on port 8081\n");
+    return 0;
 }
 
 int main()
 {
-    char* dev_mode = getenv("DEV_MODE");
+    // Register signal handlers for cleanup
+    signal(SIGINT, signal_handler);   // Ctrl+C
+    signal(SIGTERM, signal_handler);  // Termination
+    #ifndef _WIN32
+    signal(SIGHUP, signal_handler);   // Terminal hangup
+    #endif
+    
+    dev_mode = getenv("DEV_MODE");
+    
+    // Check if required ports are available
+    if (port_in_use(8081)) {
+        printf("Error: Port 8081 is already in use. Audio service cannot start.\n");
+        exit(1);
+    }
+    
+    if (!(dev_mode && strcmp(dev_mode, "1") == 0)) {
+        if (port_in_use(8080)) {
+            printf("Error: Port 8080 is already in use. Frontend server cannot start.\n");
+            exit(1);
+        }
+    }
+    
+    if (start_audio_service() != 0) {
+        printf("could not start audio service\n");
+        exit(1);
+    }
+
+
+    setenv("GDK_BACKEND", "wayland", 1);
+    setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1", 1);
+    setenv("WEBKIT_DISABLE_COMPOSITING_MODE", "1", 1);
 
     webview_t w = webview_create(0, NULL);
     webview_set_title(w, "Buddy");
@@ -239,21 +578,34 @@ int main()
     }
     else {
         // build static files if needed
-        build_frontend();
+        if (build_frontend() != 0) {
+            printf("could not build frontend\n");
+            exit(1);
+        }
 
         // Serve static files with http server
         #ifdef _WIN32
-        system("start /B cmd /C \"cd frontend\\dist && python -m http.server 8080\"");
+        if (system("start /B cmd /C \"cd frontend\\dist && python -m http.server 8080\"") != 0) {
+            printf("could not start server\n");
+            exit(1);
+        }
         Sleep(2000);
         #else
-        system("cd frontend/dist && python3 -m http.server 8080 &");
+        if (system("cd frontend/dist && python3 -m http.server 8080 --bind 127.0.0.1 &") != 0) {
+            printf("could not start server\n");
+            exit(1);
+        }
         sleep(2);
         #endif
-        webview_navigate(w, "http://localhost:8080");
+        
+        webview_navigate(w, "http://127.0.0.1:8080");
     }
 
     // Set up venv if one doesn't exist
-    setup_python_venv();
+    if (setup_python_venv() != 0) {
+        printf("could not set up python venv\n");
+        exit(1);
+    }
 
     PipeHandles pipeHandles;
 
@@ -313,7 +665,6 @@ int main()
             close(stdout_pipe[0]);
 
             // Exec python backend with venv
-            setenv("GDK_BACKEND", "wayland", 1);
             execlp("bash", "bash", "-c", "cd backend && source venv/bin/activate && python3 main.py", NULL);
 
             perror("exec failed");
@@ -321,6 +672,7 @@ int main()
         }
 
         // Parent process
+        python_backend_pid = pid;  // Track backend PID for cleanup
         
         // Connect pipes
         pipeHandles.stdinWrite = stdin_pipe[1];

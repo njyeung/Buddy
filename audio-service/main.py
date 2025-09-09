@@ -7,7 +7,6 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import io
 import soundfile as sf
-from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
@@ -23,17 +22,19 @@ CORS(app)
 CLEANED_DIR = Path(__file__).parent / "cleaned"
 
 tts_model = None
-openai_client = None
 
 def init_voice_cloning():
     """Initialize Coqui TTS voice cloning system"""
-    global tts_model, openai_client
+    global tts_model
     
     if tts_model is None:
         try:
             from TTS.api import TTS
             import torch
             import warnings
+            
+            # Auto-accept Coqui license
+            os.environ['COQUI_TOS_AGREED'] = '1'
             
             # Suppress warnings
             warnings.filterwarnings("ignore")
@@ -52,14 +53,7 @@ def init_voice_cloning():
                 tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
             torch.load = original_load
             
-            # Initialize OpenAI client
-            if openai_client is None:
-                api_key = os.getenv('OPENAI_API_KEY')
-                if api_key:
-                    openai_client = OpenAI(api_key=api_key)
-                    logger.info("OpenAI client initialized")
-                else:
-                    logger.warning("OPENAI_API_KEY not found, voice conversion only")
+            logger.info("Voice cloning system initialized")
             
         except Exception as e:
             logger.error(f"Voice cloning initialization failed: {e}")
