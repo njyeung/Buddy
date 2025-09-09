@@ -2,9 +2,7 @@
 torch==2.6.0+cu124 
 torchaudio==2.6.0+cu124
 
-# Flask web server
-Flask>=2.0.0
-Flask-CORS>=3.0.0
+# No web server needed - using named pipes
 
 # Maintained Coqui TTS fork - this should handle coqpit dependencies automatically
 coqui-tts
@@ -18,6 +16,7 @@ unidic-lite>=1.0.8
 librosa>=0.9.0
 soundfile>=0.10.0
 scipy>=1.7.0
+pygame>=2.0.0
 
 # Basic ML dependencies
 numpy>=1.21.0

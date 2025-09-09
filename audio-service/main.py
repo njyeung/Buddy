@@ -2,11 +2,12 @@ import os
 import uuid
 import logging
 from pathlib import Path
-from flask import Flask, request, jsonify, send_file, Response
-from flask_cors import CORS
 from dotenv import load_dotenv
 import io
 import soundfile as sf
+import pygame
+import threading
+import time
 
 # Load environment variables
 load_dotenv()
@@ -15,13 +16,13 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
-CORS(app)
-
 # Configuration
 CLEANED_DIR = Path(__file__).parent / "cleaned"
 
 tts_model = None
+
+# Initialize pygame mixer for audio playback
+pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
 
 def init_voice_cloning():
     """Initialize Coqui TTS voice cloning system"""
@@ -59,44 +60,66 @@ def init_voice_cloning():
             logger.error(f"Voice cloning initialization failed: {e}")
             tts_model = None
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({
-        'status': 'healthy',
-        'service': 'audio-service',
-        'voice_cloning_initialized': tts_model is not None
-    })
-
-@app.route('/api/tts', methods=['POST'])
-def voice_clone():
+def play_audio_async(audio_data):
+    """Play audio in a separate thread to avoid blocking the Flask response"""
     try:
-        # Parse request
-        data = request.get_json()
-        if not data or 'text' not in data:
-            return jsonify({'error': 'Missing text parameter'}), 400
-            
-        text = data['text']
+        # Create a temporary file for pygame to play
+        temp_file = f"/tmp/buddy_audio_{uuid.uuid4().hex[:8]}.wav"
+        with open(temp_file, 'wb') as f:
+            f.write(audio_data)
         
-        if not text.strip():
-            return jsonify({'error': 'Empty text provided'}), 400
+        # Play the audio
+        pygame.mixer.music.load(temp_file)
+        pygame.mixer.music.play()
         
-        # Sanity check
-        init_voice_cloning()
+        # Wait for playback to finish
+        while pygame.mixer.music.get_busy():
+            pygame.time.wait(100)
         
-        # Generate voice cloned audio in memory
-        audio_data = clone_voice(text)
-        
-        return Response(
-            audio_data,
-            mimetype='audio/wav',
-            headers={
-                'Content-Disposition': f'inline; filename="voice_{uuid.uuid4().hex[:8]}.wav"'
-            }
-        )
+        # Clean up temp file
+        os.remove(temp_file)
+        logger.info("Audio playback completed")
         
     except Exception as e:
-        logger.error(f"Error processing voice cloning: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error playing audio: {e}")
+
+def listen_to_pipe():
+    """Listen for commands from named pipe"""
+    pipe_path = "/tmp/buddy_to_audio"
+    
+    while True:
+        try:
+            # Wait for pipe to exist
+            while not os.path.exists(pipe_path):
+                time.sleep(0.1)
+            
+            # Open pipe for reading - this will unblock the C bridge
+            with open(pipe_path, 'r') as pipe:
+                logger.info("Pipe connection established - ready for commands")
+                
+                for line in pipe:
+                    line = line.strip()
+                    if line.startswith("TTS:"):
+                        text = line[4:]  # Remove "TTS:" prefix
+                        logger.info(f"Received TTS request: {text}")
+                        
+                        # Check if TTS is ready
+                        if tts_model is None:
+                            logger.warning("TTS not initialized yet, skipping request")
+                            continue
+                        
+                        try:
+                            # Generate and play audio
+                            audio_data = clone_voice(text)
+                            audio_thread = threading.Thread(target=play_audio_async, args=(audio_data,))
+                            audio_thread.daemon = True
+                            audio_thread.start()
+                        except Exception as e:
+                            logger.error(f"Error processing TTS: {e}")
+                            
+        except Exception as e:
+            logger.error(f"Pipe listener error: {e}")
+            time.sleep(1)
 
 def clone_voice(text):
     try:
@@ -126,10 +149,23 @@ def clone_voice(text):
         raise
 
 if __name__ == '__main__':
-    init_voice_cloning()
-
-    app.run(
-        host='127.0.0.1',
-        port=8081,
-        threaded=True
-    )
+    logger.info("Starting Buddy Audio Service")
+    
+    # Start TTS initialization in background thread
+    def init_tts_async():
+        logger.info("Initializing TTS system...")
+        init_voice_cloning()
+        if tts_model is not None:
+            logger.info("TTS system ready")
+        else:
+            logger.error("TTS system failed to initialize")
+    
+    tts_thread = threading.Thread(target=init_tts_async)
+    tts_thread.daemon = True  
+    tts_thread.start()
+    
+    # Start pipe listener immediately (this will unblock C bridge)
+    logger.info("Starting pipe listener - C bridge can now connect")
+    listen_to_pipe()
+    
+    
