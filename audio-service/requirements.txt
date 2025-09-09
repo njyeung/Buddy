@@ -1,4 +1,4 @@
---index-url https://download.pytorch.org/whl/cu124
+--extra-index-url https://download.pytorch.org/whl/cu124
 torch==2.6.0+cu124 
 torchaudio==2.6.0+cu124
 
@@ -7,7 +7,7 @@ Flask>=2.0.0
 Flask-CORS>=3.0.0
 
 # Maintained Coqui TTS fork - this should handle coqpit dependencies automatically
-coqui-tts>=0.24.2
+coqui-tts
 
 # Japanese language support
 cutlet>=0.1.0
@@ -21,10 +21,6 @@ scipy>=1.7.0
 
 # Basic ML dependencies
 numpy>=1.21.0
-
-# TTS integration (keeping as backup)
-openai>=1.0.0
-requests>=2.28.0
 
 # Utilities
 python-dotenv>=0.19.0
