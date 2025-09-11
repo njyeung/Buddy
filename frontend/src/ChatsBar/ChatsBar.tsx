@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Clock } from "lucide-react";
 import type { Chat, OutgoingDataType } from "../interface";
 import ScrollableChatName from "./ScrollableChatName";
 import ChatSettings from "./ChatSettings";
 
-export default function ChatsBar({ chats, sendData, openModal, closeModal } : { chats : Chat[], sendData: (type: OutgoingDataType, data: string | null, meta?: any) => void , openModal: (content: React.ReactNode) => void , closeModal: () => void }){
+export default function ChatsBar({ chats, sendData, openModal, closeModal, openEmpheralChat, isEmpheralChatOpen } : { chats : Chat[], sendData: (type: OutgoingDataType, data: string | null, meta?: any) => void , openModal: (content: React.ReactNode) => void , closeModal: () => void, openEmpheralChat: () => void, isEmpheralChatOpen: boolean }){
   
   const [sidebarWidth, setSidebarWidth] = useState(70);
   
@@ -55,7 +55,7 @@ export default function ChatsBar({ chats, sendData, openModal, closeModal } : { 
       </div>
 
       <div style={{ width: sidebarWidth }} className="h-full w-full bg-primary-400 overflow-y-auto overflow-x-hidden select-none text-white text-sm">
-        <div className="flex w-full p-1">
+        <div className="p-1 flex w-full">
           <div
           onClick={()=>{
             sendData("switch-chat", null)
@@ -66,6 +66,13 @@ export default function ChatsBar({ chats, sendData, openModal, closeModal } : { 
         </div>
         
         <ul>
+          <li>
+            <div
+            onClick={openEmpheralChat} 
+            className="cursor-pointer w-full border-primary-200 border-t">
+              <ScrollableChatName active={isEmpheralChatOpen} name={"ACA NE"}></ScrollableChatName>
+            </div>
+          </li>
         {
           chats.map((chat) => (
             <li key={chat.id}>
@@ -80,7 +87,7 @@ export default function ChatsBar({ chats, sendData, openModal, closeModal } : { 
                 );
               }}
               key={chat.id} className="cursor-pointer w-full border-primary-200 border-t last:border-b">
-                <ScrollableChatName active={chat.active} name={chat.name}></ScrollableChatName>
+                <ScrollableChatName active={!isEmpheralChatOpen && chat.active} name={chat.name}></ScrollableChatName>
               </div>
             </li>
             

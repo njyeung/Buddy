@@ -3,6 +3,7 @@ import ChatBox from "./ChatBox/ChatBox";
 import { motion } from "framer-motion";
 import ToolBox from "./ToolBox/ToolBox";
 import PromptBox from "./PromptBox/PromptBox";
+import EmpheralChat from "./EmpheralChat/EmpheralChat";
 
 export default function Window({index=0, items, firstWindow=true}: {index?: number, items: WindowInterface[], firstWindow?: boolean}) {
 
@@ -14,6 +15,8 @@ export default function Window({index=0, items, firstWindow=true}: {index?: numb
         return <ToolBox messages={window.props.messages}></ToolBox>
       case "promptbox" :
         return <PromptBox id={window.props.id} prompt={window.props.prompt} promptReturn={window.props.promptReturn}></PromptBox>
+      case "empheralchat" :
+        return <EmpheralChat sendData={window.props.sendData}/>
     }
   }
 
