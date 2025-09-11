@@ -16,6 +16,7 @@ export interface IncomingData  {
   meta?: any
 }
 
+// empheral -> whole conversation. Backend evaluates and returns the ai output
 // user-messages -> User input
 // get-chat-messages -> Get the chat messages of a chat, return type is "return-chat-messages" payload == null means we load the latest 10 chats. 
 //                      Otherwise, we are getting paginated and the payload looks like -> { before_id: number , limit: number }
@@ -25,7 +26,7 @@ export interface IncomingData  {
 // get-current-chat-id -> Gets the current chat id of the backend
 // rename-chat -> payload is new name, meta is chat-id to rename, returns "return-all-chats"
 // rename-chat -> payload is chat-id to delete, returns "return-all-chats"
-export type OutgoingDataType = "user-message" | "get-chat-messages" | "return-prompt" |
+export type OutgoingDataType = "empheral" | "user-message" | "get-chat-messages" | "return-prompt" |
 "user-function" | "switch-chat" | "get-all-chats" | "get-current-chat-id" | "rename-chat" | "delete-chat";
 
 
@@ -44,6 +45,6 @@ export interface Chat {
 
 export interface Window {
   id: number;
-  windowType: "chatbox" | "toolbox" | "promptbox";
+  windowType: "chatbox" | "toolbox" | "promptbox" | "empheralchat";
   props: any
 }

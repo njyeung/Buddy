@@ -205,6 +205,39 @@ export default function App() {
     setModalOpened(false);
   }
 
+  const openEmpheralChat = () => {
+    setWindows((prev) => {
+      // Check if ephemeral chat window already exists
+      const empheralChatExists = prev.some(win => win.windowType === "empheralchat");
+      
+      // If toggling back to chatbox, refresh the chat messages
+      if (empheralChatExists) {
+        sendData("get-chat-messages", null);
+      }
+      
+      return prev.map((item) => {
+        if (item.id === 0) {
+          if (empheralChatExists) {
+            // Toggle back to chatbox
+            return {
+              ...item,
+              windowType: "chatbox",
+              props: { sendData }
+            }
+          } else {
+            // Toggle to ephemeral chat
+            return {
+              ...item,
+              windowType: "empheralchat",
+              props: { sendData }
+            }
+          }
+        }
+        return item; // Return unchanged items
+      })
+    });
+  }
+
   return (
     <div className="w-full h-screen flex flex-row relative">
       {
@@ -214,7 +247,14 @@ export default function App() {
         </ContextMenu>
       }
       <Window items={windows}></Window>
-      <ChatsBar chats={chats} sendData={sendData} openModal={openModal} closeModal={closeModal}></ChatsBar>
+      <ChatsBar 
+        chats={chats} 
+        sendData={sendData} 
+        openModal={openModal} 
+        closeModal={closeModal} 
+        openEmpheralChat={openEmpheralChat}
+        isEmpheralChatOpen={windows.some((wind) => wind.windowType === "empheralchat")}
+      ></ChatsBar>
     </div>
   );
 }
