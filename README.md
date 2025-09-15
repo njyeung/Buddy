@@ -4,12 +4,12 @@ Learning project build upon the GPT api
 ## TODO (for me)
 * Add emphereal chat. A chat that resets based on time so you can have it always open like jarvis. 
 * RAG and vector db (Basically done, idk)
-* User profile, since this is distilled asynchronously, we can try using a local model
-* Projects table (collection of chats, allow scoped RAG on chats inside a project in config.py)
-* Add webview as submodule
+* User profile. we can either make this static only editable by the user or make a local model distilled it asynchronously.
+* Projects table (collection of chats, allow scoped RAG on chats inside a project in config.py) -> not sure if i wanna add projects, seems dumb
+* Add webview as submodule 
 * Frontend resizable recursive window components
   * This is somehow harder than it looks.
-  * Stumped llm count: (2) ~~o4-mini-high~~ ~~Sonnet 4~~
+  * Stumped llm count: (3) ~~o4-mini-high~~ ~~Sonnet 4~~ ~~Opus 4.1~~
 * write_file tool should open up a text editor for the user
 * Give buddy a personality
 * Aca ne TTS and speech recognition
