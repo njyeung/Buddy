@@ -2,6 +2,7 @@
 Learning project build upon the GPT api
 
 ## TODO (for me)
+* Exiting the webview doesn't kill the other processes that the c program started.
 * Add emphereal chat. A chat that resets based on time so you can have it always open like jarvis. 
 * RAG and vector db (Basically done, idk)
 * User profile. we can either make this static only editable by the user or make a local model distilled it asynchronously.
@@ -28,10 +29,20 @@ Learning project build upon the GPT api
 git clone https://github.com/njyeung/Buddy
 cd Buddy
 ```
+### 2. Run the executable to launch the app
 
-### 2. Frontend
+* **For Windows:**
+  `Buddy_windows.exe`
 
-#### a. (For development) Start server:
+* **For macOS:**
+  `./Buddy_darwin`
+
+* **For Linux:**
+  `./Buddy_linux`
+
+### (For Development) Frontend
+
+#### a. Start server:
 
 ```bash
 # From project root
@@ -47,39 +58,17 @@ npm run dev
 webview_navigate(w, "http://localhost:5173");
 ```
 
-#### b. Or point towards built contents
+**Set environment variable for DEV_MODE**
 
-If you’ve run `npm run build`, update `main.c` to point to the built bundle instead (i.e. a local file path), and rebuild the bridge executable (see step 4).
+**For UNIX**
+ `export DEV_MODE=1`
 
+**For Windows**
+ `set DEV_MODE=1`
+ 
 ---
 
-### 3. Install backend Python libraries
-
-```bash
-# From project root
-cd backend
-pip install -r requirements.txt
-```
-
-> You don’t need to run the backend manually. The C program will spawn it as a child process.
-> So if you change the Python code, just restart the executable. It’s fast because webview is lightweight.
-
----
-
-### 4. Run the executable to launch the app
-
-* **For Windows:**
-  `Buddy.exe`
-
-* **For macOS:**
-  `./Buddy`
-
-* **For Linux:**
-  `./Buddy`
-
----
-
-### 5. (Optional) If you intend to modify the C bridge: Install webview submodule
+### (For Development) If you intend to modify the C bridge: Install webview submodule
 
 Buddy uses webview to bridge the backend (Python) and frontend (React) via native pipes and threads. It’s not registered as a submodule, so you will need to:
 
@@ -133,8 +122,6 @@ However, if you'd like to set things up manually ahead of time:
   ```
 
 ---
-
-
 
 ## Concepts of Projects, Chats, Messages, RAGs, Sliding Window, and User Profile
 
