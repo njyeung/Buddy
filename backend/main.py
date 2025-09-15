@@ -208,7 +208,7 @@ def summarize_messages(client: OpenAI):
     # uprint(f"[PREVIOUS SUMMARY] {previous_summary}", OutGoingDataType.LOG)
     # uprint(f"[CONTENT OF PRVIOUS SUMMARY] {previous_summary}")
 
-    response = client.chat.completions.create(
+    response = state.client.chat.completions.create(
         model=SLAVE_MODEL,
         messages=prompt
     )

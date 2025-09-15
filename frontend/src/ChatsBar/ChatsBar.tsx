@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { MessageSquare, Clock } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import type { Chat, OutgoingDataType } from "../interface";
 import ScrollableChatName from "./ScrollableChatName";
 import ChatSettings from "./ChatSettings";
