@@ -441,46 +441,56 @@ int build_frontend() {
 
 int setup_python_venv() {
     printf("Checking Python virtual environment\n");
-    
+
     #ifdef _WIN32
     struct stat st;
     if (stat("backend\\venv", &st) != 0) {
         printf("Virtual environment not found. Creating venv\n");
 
         int err = system("cd backend && python -m venv venv");
-        if (!err) {
+        if (err != 0) {
+            printf("Failed to create virtual environment\n");
             return err;
         }
         printf("Virtual environment created\n");
     }
     printf("Installing/updating dependencies...\n");
-    
-    system("cd backend && call venv\\Scripts\\activate && pip install -r requirements.txt");
-    if (!err) {
-        return err;
+
+    int pip_err = system("cd backend && call venv\\Scripts\\activate && pip install -r requirements.txt");
+    if (pip_err != 0) {
+        printf("Failed to install dependencies\n");
+        return pip_err;
     }
 
+    printf("Dependencies installed. Waiting for environment to stabilize...\n");
+    Sleep(1000); // 1 second delay
+
     #else
-    
+
     struct stat st;
     if (stat("backend/venv", &st) != 0) {
         printf("Virtual environment not found. Creating venv\n");
-        
-        int err = system("cd backend && python -m venv venv");
-        if (!err) {
+
+        int err = system("cd backend && python3 -m venv venv");
+        if (err != 0) {
+            printf("Failed to create virtual environment\n");
             return err;
         }
 
         printf("Virtual environment created\n");
     }
     printf("Installing/updating dependencies\n");
-    
-    int err = system("cd backend && source venv/bin/activate && pip install -r requirements.txt");
-    if (!err) {
-        return err;
+
+    int pip_err = system("cd backend && source venv/bin/activate && pip install -r requirements.txt");
+    if (pip_err != 0) {
+        printf("Failed to install dependencies\n");
+        return pip_err;
     }
+
+    printf("Dependencies installed. Waiting for environment to stabilize...\n");
+    sleep(1); // 1 second delay
     #endif
-    
+
     printf("Python environment ready. Starting backend\n");
 
     return 0;
