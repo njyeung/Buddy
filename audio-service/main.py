@@ -1,6 +1,5 @@
 import os
 import uuid
-import logging
 from pathlib import Path
 from dotenv import load_dotenv
 import io
@@ -12,9 +11,6 @@ import time
 # Load environment variables
 load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Configuration
 CLEANED_DIR = Path(__file__).parent / "cleaned"
@@ -54,10 +50,10 @@ def init_voice_cloning():
                 tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
             torch.load = original_load
             
-            logger.info("Voice cloning system initialized")
+            print("Voice cloning system initialized")
             
         except Exception as e:
-            logger.error(f"Voice cloning initialization failed: {e}")
+            print(f"Voice cloning initialization failed: {e}")
             tts_model = None
 
 def play_audio_async(audio_data):
@@ -78,10 +74,10 @@ def play_audio_async(audio_data):
         
         # Clean up temp file
         os.remove(temp_file)
-        logger.info("Audio playback completed")
+        print("Audio playback completed")
         
     except Exception as e:
-        logger.error(f"Error playing audio: {e}")
+        print(f"Error playing audio: {e}")
 
 def listen_to_pipe():
     """Listen for commands from named pipe"""
@@ -95,17 +91,17 @@ def listen_to_pipe():
             
             # Open pipe for reading - this will unblock the C bridge
             with open(pipe_path, 'r') as pipe:
-                logger.info("Pipe connection established - ready for commands")
+                print("Pipe connection established - ready for commands")
                 
                 for line in pipe:
                     line = line.strip()
                     if line.startswith("TTS:"):
                         text = line[4:]  # Remove "TTS:" prefix
-                        logger.info(f"Received TTS request: {text}")
+                        print(f"Received TTS request: {text}")
                         
                         # Check if TTS is ready
                         if tts_model is None:
-                            logger.warning("TTS not initialized yet, skipping request")
+                            print("TTS not initialized yet, skipping request")
                             continue
                         
                         try:
@@ -115,18 +111,16 @@ def listen_to_pipe():
                             audio_thread.daemon = True
                             audio_thread.start()
                         except Exception as e:
-                            logger.error(f"Error processing TTS: {e}")
+                            print(f"Error processing TTS: {e}")
                             
         except Exception as e:
-            logger.error(f"Pipe listener error: {e}")
+            print(f"Pipe listener error: {e}")
             time.sleep(1)
 
 def clone_voice(text):
     try:
-        
         # Priority: speaking_cut.mp3 first
         speaking_cut = CLEANED_DIR / "speaking_cut.mp3"
-        
         
         # Generate voice cloned audio directly to memory using all references
         audio_array = tts_model.tts(
@@ -145,27 +139,27 @@ def clone_voice(text):
         return audio_buffer.getvalue()
         
     except Exception as e:
-        logger.error(f"Voice cloning failed: {e}")
+        print(f"Voice cloning failed: {e}")
         raise
 
 if __name__ == '__main__':
-    logger.info("Starting Buddy Audio Service")
+    print("Starting Buddy Audio Service")
     
     # Start TTS initialization in background thread
     def init_tts_async():
-        logger.info("Initializing TTS system...")
+        print("Initializing TTS system...")
         init_voice_cloning()
         if tts_model is not None:
-            logger.info("TTS system ready")
+            print("AUDIO_SERVICE_READY", flush=True)
         else:
-            logger.error("TTS system failed to initialize")
+            print("AUDIO_SERVICE_FAILED", flush=True)
     
     tts_thread = threading.Thread(target=init_tts_async)
     tts_thread.daemon = True  
     tts_thread.start()
     
     # Start pipe listener immediately (this will unblock C bridge)
-    logger.info("Starting pipe listener - C bridge can now connect")
+    print("Starting pipe listener - C bridge can now connect")
     listen_to_pipe()
     
     

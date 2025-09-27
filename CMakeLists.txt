@@ -14,5 +14,5 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(webview)
 
 add_executable(Buddy)
-target_sources(Buddy PRIVATE main.c)
+target_sources(Buddy PRIVATE main.c process_manager.c audio_service.c)
 target_link_libraries(Buddy PRIVATE webview::core_static)
