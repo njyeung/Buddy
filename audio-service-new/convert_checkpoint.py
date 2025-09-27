@@ -16,7 +16,7 @@ def convert_checkpoint(checkpoint_path, output_path=None):
     """Convert RVC training checkpoint to inference format"""
     
     if not os.path.exists(checkpoint_path):
-        print(f"❌ Checkpoint file not found: {checkpoint_path}")
+        print(f"Checkpoint file not found: {checkpoint_path}")
         return False
     
     if output_path is None:
@@ -58,6 +58,7 @@ def convert_checkpoint(checkpoint_path, output_path=None):
         
         # Add RVC configuration parameters for inference
         # These are the standard RVC v2 configuration parameters
+        # Using 768 gin_channels for HuBERT compatibility
         opt["config"] = [
             513,    # filter_length
             32,     # hop_length 
@@ -79,6 +80,10 @@ def convert_checkpoint(checkpoint_path, output_path=None):
             48000   # sample_rate
         ]
         
+        # Add version and f0 info for proper architecture selection
+        opt["version"] = "v2"  # Use v2 for 768D architecture
+        opt["f0"] = 1          # Enable f0 (pitch) processing
+        
         # Save the inference model
         print(f"Saving inference model: {output_path}")
         torch.save(opt, output_path)
@@ -94,16 +99,16 @@ def convert_checkpoint(checkpoint_path, output_path=None):
         original_size = os.path.getsize(checkpoint_path)
         converted_size = os.path.getsize(output_path)
         
-        print(f"✅ Conversion successful!")
-        print(f"   Original size: {original_size:,} bytes ({original_size/1024/1024:.1f} MB)")
-        print(f"   Converted size: {converted_size:,} bytes ({converted_size/1024/1024:.1f} MB)")
-        print(f"   Size reduction: {100*(1-converted_size/original_size):.1f}%")
-        print(f"   Output: {output_path}")
+        print(f"    Conversion successful!")
+        print(f"    Original size: {original_size:,} bytes ({original_size/1024/1024:.1f} MB)")
+        print(f"    Converted size: {converted_size:,} bytes ({converted_size/1024/1024:.1f} MB)")
+        print(f"    Size reduction: {100*(1-converted_size/original_size):.1f}%")
+        print(f"    Output: {output_path}")
         
         return True
         
     except Exception as e:
-        print(f"❌ Conversion failed: {e}")
+        print(f"Conversion failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -135,7 +140,7 @@ def main():
     success = convert_checkpoint(args.checkpoint, args.output)
     
     if success:
-        print(f"\n🎉 Your model is ready! Use it with:")
+        print(f"\nYour model is ready! Use it with:")
         print(f"   python main.py")
         sys.exit(0)
     else:
