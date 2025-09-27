@@ -31,7 +31,7 @@ class FinalRVC:
         """Auto-convert training checkpoint if needed"""
         try:
             from convert_checkpoint import convert_checkpoint
-            print(f"🔄 Auto-converting checkpoint: {checkpoint_path}")
+            print(f"Auto-converting checkpoint: {checkpoint_path}")
             
             # Convert to model.pth
             success = convert_checkpoint(checkpoint_path, "model.pth")
@@ -41,13 +41,13 @@ class FinalRVC:
                 if not os.path.exists("model"):
                     print("Creating model file without extension...")
                     shutil.copy2("model.pth", "model")
-                print("✅ Auto-conversion successful!")
+                print("Auto-conversion successful!")
                 return True
             else:
-                print("❌ Auto-conversion failed")
+                print("Auto-conversion failed")
                 return False
         except Exception as e:
-            print(f"❌ Auto-conversion error: {e}")
+            print(f"Auto-conversion error: {e}")
             return False
         
     def load_model(self, model_name="model.pth"):
@@ -70,13 +70,13 @@ class FinalRVC:
                     
                     # Auto-convert it
                     if self.auto_convert_checkpoint(latest_checkpoint):
-                        print(f"✅ Converted {latest_checkpoint} → model.pth")
+                        print(f"Converted {latest_checkpoint} to model.pth")
                     else:
-                        print(f"❌ Failed to convert {latest_checkpoint}")
+                        print(f"Failed to convert {latest_checkpoint}")
                         return False
                 else:
-                    print("❌ No model.pth or G_*.pth files found!")
-                    print("💡 Drag your RVC training checkpoint (G_*.pth) into this directory")
+                    print("No model.pth or G_*.pth files found!")
+                    print("Drag your RVC training checkpoint (G_*.pth) into this directory")
                     return False
             
             # Extract just the name without extension for the VC system
@@ -221,15 +221,15 @@ class FinalRVC:
                         # Fallback to original RVC output
                         shutil.move(temp_rvc_output.name, output_path)
                     else:
-                        print(f"✓ Successfully stretched output to match timing")
+                        print(f"Successfully stretched output to match timing")
                         os.unlink(temp_rvc_output.name)
                 else:
                     # No stretching needed, use RVC output directly
                     shutil.move(temp_rvc_output.name, output_path)
                 
-                print(f"✓ Conversion successful!")
-                print(f"  Result: {result_info}")
-                print(f"  Output: {output_path}")
+                print(f"Conversion successful!")
+                print(f"Result: {result_info}")
+                print(f"Output: {output_path}")
                 return output_path
             else:
                 print(f"✗ Conversion failed: {result_info}")
@@ -265,13 +265,12 @@ def test_final_rvc():
         result = rvc.convert_audio(input_file, output_file)
         if result and os.path.exists(result):
             output_size = os.path.getsize(result)
-            print(f"\n✅ SUCCESS! Converted audio saved: {result}")
-            print(f"   Output file size: {output_size:,} bytes")
+            print(f"\nSUCCESS! Converted audio saved: {result}")
             print(f"\nYou can now play {result} to hear the converted audio!")
         else:
-            print("\n❌ Conversion failed")
+            print("\nConversion failed")
     else:
-        print(f"❌ Input file not found: {input_file}")
+        print(f"Input file not found: {input_file}")
 
 if __name__ == "__main__":
     test_final_rvc()
