@@ -20,3 +20,22 @@ __pycache__/
 /backend/storage/chat_memory.db
 
 /backend/storage/chroma_index/
+
+# Large model files (audio-service-new)
+audio-service-new/assets/hubert/hubert_base.pt
+audio-service-new/assets/weights/G_2333333.pth
+audio-service-new/assets/rmvpe/rmvpe_inputs.pth
+audio-service-new/assets/rmvpe/rmvpe.pt
+audio-service-new/assets/rmvpe/rmvpe.onnx
+audio-service-new/model.pth
+audio-service-new/model
+audio-service-new/rmvpe.pt
+audio-service-new/venv/
+audio-service-new/venv2/
+
+# RVC training checkpoints
+audio-service-new/G_*.pth
+
+# Compressed archives
+*.7z
+RVC1006Nvidia/
