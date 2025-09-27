@@ -8,7 +8,7 @@ from screeninfo import get_monitors
 from config import MASTER_MODEL
 from tool_decorator import tool
 
-@tool("Uses the vision sub-agent to help answer a visual question. Pass in what the user wants to know.")
+# @tool("Uses the vision sub-agent to help answer a visual question. Pass in what the user wants to know.")
 def ask_about_screen(query: str, primary_monitor_only: bool = True):
 
     def encode_image_base64(path: str) -> tuple[str, str]:
