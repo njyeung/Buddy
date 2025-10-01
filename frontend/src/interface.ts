@@ -6,9 +6,10 @@
 // return-all-chats -> response to "get-all-chats"
 // return-current-chat-id -> response to switch-chat
 // return-chat-messages -> response to switch-chat and get-chat-messages
+// audio-service-response -> response from audio service
 export type IncomingDataType = "assistant-message" | "assistant-function" |
 "tool-call" | "tool-return" | "return-all-chats" | "return-current-chat-id" | "prompt" |
-"return-chat-messages";
+"return-chat-messages" | "audio-service-response";
 
 export interface IncomingData  {
   type: IncomingDataType
@@ -26,8 +27,10 @@ export interface IncomingData  {
 // get-current-chat-id -> Gets the current chat id of the backend
 // rename-chat -> payload is new name, meta is chat-id to rename, returns "return-all-chats"
 // rename-chat -> payload is chat-id to delete, returns "return-all-chats"
+// frontend-audio-service -> request from frontend to audio service
 export type OutgoingDataType = "empheral" | "user-message" | "get-chat-messages" | "return-prompt" |
-"user-function" | "switch-chat" | "get-all-chats" | "get-current-chat-id" | "rename-chat" | "delete-chat";
+"user-function" | "switch-chat" | "get-all-chats" | "get-current-chat-id" | "rename-chat" | "delete-chat" |
+"frontend-audio-service";
 
 
 export interface OutgoingData {

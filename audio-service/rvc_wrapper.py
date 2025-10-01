@@ -141,12 +141,12 @@ class RVC:
             
             # Standard RVC parameters for good quality
             sid = 0               # Speaker ID (0 for single speaker models)
-            f0_up_key = 4         # Pitch shift in semitones (0 = no change)
+            f0_up_key = 6         # Pitch shift in semitones (0 = no change)
             f0_method = "rmvpe"   # F0 extraction method (rmvpe is fast and good quality)
             file_index = ""       # Index file (empty = no index file used)
             file_index2 = ""      # Backup index file
             index_rate = 0.5      # Index influence rate (doesn't matter with no index)
-            filter_radius = 5     # Median filter radius for F0
+            filter_radius = 2     # Median filter radius for F0
             resample_sr = 0       # Output sample rate (0 = use model's rate)
             
             # These preserve original voice charactaristics. Since we want to 
@@ -177,8 +177,6 @@ class RVC:
                 protect=protect
             )
             
-            # Keep normalized file in tmp folder, don't delete it
-            
             if "Success" in result_info:
                 # Save initial RVC output in tmp folder
                 temp_rvc_filename = f"rvc_temp_{uuid.uuid4().hex}.wav"
@@ -208,14 +206,6 @@ class RVC:
                 
                 print(f"Stretch command: {' '.join(stretch_cmd)}")
                 stretch_result = subprocess.run(stretch_cmd, capture_output=True, text=True)
-                
-                if stretch_result.returncode != 0:
-                    print(f"Stretch failed, using original: {stretch_result.stderr}")
-                    # Fallback to original RVC output
-                    shutil.move(temp_rvc_output_path, output_path)
-                else:
-                    print(f"Successfully stretched output to match timing")
-                    # Keep temp file in tmp folder, don't delete it
                 
                 print(f"Conversion successful!")
                 print(f"Result: {result_info}")

@@ -9,8 +9,7 @@
 
 int setup_audio_pipe(void);
 int connect_audio_pipe(void);
-void send_text_to_audio_service(const char* text);
-char* extract_assistant_message(const char* json_line);
+void send_json_to_audio_service(const char* json);
 void cleanup_audio_pipe(void);
 
 #endif

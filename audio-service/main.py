@@ -1,165 +1,218 @@
+
 import os
-import uuid
-from pathlib import Path
-from dotenv import load_dotenv
-import io
+import sys
+import torch
+import numpy as np
 import soundfile as sf
-import pygame
+import tempfile
+import uuid
+import openai
+from openai import OpenAI, AsyncOpenAI
+from openai.helpers import LocalAudioPlayer
+from dotenv import load_dotenv
+import asyncio
+from pathlib import Path
 import threading
 import time
+import pygame
+import glob
+import signal
+import json
+from uprint import uprint
 
-# Load environment variables
+
+# Load environment variables from .env file
 load_dotenv()
 
+# Set up environment variables that RVC expects
+os.environ["weight_root"] = "."                 # Current directory where our G_2333333.pth is located
+os.environ["rmvpe_root"] = "./assets/rmvpe"     # For RMVPE model (if needed)
+os.environ["index_root"] = "."                  # For index files (optional for RVC)
 
-# Configuration
-CLEANED_DIR = Path(__file__).parent / "cleaned"
+# Set up paths like the original
+current_dir = os.getcwd()
+sys.path.append(current_dir)
 
-tts_model = None
+# Import RVC wrapper
+from rvc_wrapper import RVC
+
+# Initialize OpenAI client (handle missing API key gracefully)
+openai_api_key = os.getenv('OPENAI')  # Using OPENAI instead of OPENAI_API_KEY
+client = None
+async_client = None
+if openai_api_key:
+    client = OpenAI(api_key=openai_api_key)
+    async_client = AsyncOpenAI(api_key=openai_api_key)
+else:
+    print("Warning: OPENAI API key not found in environment")
+
+# RVC class is now imported from rvc_wrapper.py
 
 # Initialize pygame mixer for audio playback
 pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
 
-def init_voice_cloning():
-    """Initialize Coqui TTS voice cloning system"""
-    global tts_model
-    
-    if tts_model is None:
-        try:
-            from TTS.api import TTS
-            import torch
-            import warnings
-            
-            # Auto-accept Coqui license
-            os.environ['COQUI_TOS_AGREED'] = '1'
-            
-            # Suppress warnings
-            warnings.filterwarnings("ignore")
-            
-            # Fix PyTorch weights loading
-            os.environ['TORCH_WEIGHTS_ONLY'] = 'False'
-            original_load = torch.load
-            def patched_load(*args, **kwargs):
-                kwargs['weights_only'] = False
-                return original_load(*args, **kwargs)
-            torch.load = patched_load
-            
-            if torch.cuda.is_available():
-                tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True).to("cuda")
-            else:
-                tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
-            torch.load = original_load
-            
-            print("Voice cloning system initialized")
-            
-        except Exception as e:
-            print(f"Voice cloning initialization failed: {e}")
-            tts_model = None
+# Global RVC instance
+rvc_instance = None
 
-def play_audio_async(audio_data):
-    """Play audio in a separate thread to avoid blocking the Flask response"""
+# Global shutdown flag
+shutdown_flag = threading.Event()
+
+def initialize_rvc():
+    """Initialize RVC model on server startup"""
+    global rvc_instance
+    
+    rvc_instance = RVC()
+
+    if not rvc_instance.load_model("model.pth"):
+        return False
+    
+    return True
+
+def convert_audio(base_path) -> str | None:
+    """Convert audio using RVC and return output path or None if failed"""
+    if rvc_instance is None or not rvc_instance.model_ready:
+        return None
+    
     try:
-        # Create a temporary file for pygame to play
-        temp_file = f"/tmp/buddy_audio_{uuid.uuid4().hex[:8]}.wav"
-        with open(temp_file, 'wb') as f:
-            f.write(audio_data)
+        # Generate unique output filename in tmp directory
+        output_filename = f"converted_{uuid.uuid4().hex}.wav"
+        output_path = str(Path(__file__).parent / "tmp" / output_filename)
         
-        # Play the audio
-        pygame.mixer.music.load(temp_file)
-        pygame.mixer.music.play()
+        # Convert audio
+        result = rvc_instance.convert_audio(base_path, output_path)
         
-        # Wait for playback to finish
-        while pygame.mixer.music.get_busy():
-            pygame.time.wait(100)
-        
-        # Clean up temp file
-        os.remove(temp_file)
-        print("Audio playback completed")
-        
-    except Exception as e:
-        print(f"Error playing audio: {e}")
-
-def listen_to_pipe():
-    """Listen for commands from named pipe"""
-    pipe_path = "/tmp/buddy_to_audio"
-    
-    while True:
-        try:
-            # Wait for pipe to exist
-            while not os.path.exists(pipe_path):
-                time.sleep(0.1)
-            
-            # Open pipe for reading - this will unblock the C bridge
-            with open(pipe_path, 'r') as pipe:
-                print("Pipe connection established - ready for commands")
-                
-                for line in pipe:
-                    line = line.strip()
-                    if line.startswith("TTS:"):
-                        text = line[4:]  # Remove "TTS:" prefix
-                        print(f"Received TTS request: {text}")
-                        
-                        # Check if TTS is ready
-                        if tts_model is None:
-                            print("TTS not initialized yet, skipping request")
-                            continue
-                        
-                        try:
-                            # Generate and play audio
-                            audio_data = clone_voice(text)
-                            audio_thread = threading.Thread(target=play_audio_async, args=(audio_data,))
-                            audio_thread.daemon = True
-                            audio_thread.start()
-                        except Exception as e:
-                            print(f"Error processing TTS: {e}")
-                            
-        except Exception as e:
-            print(f"Pipe listener error: {e}")
-            time.sleep(1)
-
-def clone_voice(text):
-    try:
-        # Priority: speaking_cut.mp3 first
-        speaking_cut = CLEANED_DIR / "speaking_cut.mp3"
-        
-        # Generate voice cloned audio directly to memory using all references
-        audio_array = tts_model.tts(
-            text=text,
-            speaker_wav=speaking_cut, 
-            language="ja"
-        )
-        
-        sample_rate = tts_model.synthesizer.output_sample_rate
-        
-        audio_buffer = io.BytesIO()
-        
-        sf.write(audio_buffer, audio_array, sample_rate, format='WAV')
-        audio_buffer.seek(0)
-        
-        return audio_buffer.getvalue()
-        
-    except Exception as e:
-        print(f"Voice cloning failed: {e}")
-        raise
-
-if __name__ == '__main__':
-    print("Starting Buddy Audio Service")
-    
-    # Start TTS initialization in background thread
-    def init_tts_async():
-        print("Initializing TTS system...")
-        init_voice_cloning()
-        if tts_model is not None:
-            print("AUDIO_SERVICE_READY", flush=True)
+        if result and os.path.exists(result):
+            return str(result)
         else:
-            print("AUDIO_SERVICE_FAILED", flush=True)
+            return None
+            
+    except Exception as e:
+        print(f"Conversion error: {e}")
+        return None
+
+def text_to_speech(text) -> str | None:
+    if client is None:
+        return None
     
-    tts_thread = threading.Thread(target=init_tts_async)
-    tts_thread.daemon = True  
-    tts_thread.start()
+    # translation_response = client.chat.completions.create(
+    #     model="gpt-4o-mini",
+    #     messages=[
+    #         # {"role": "system", "content": "Convert the following English text to Japanese. Respond only with the Japanese text."},
+    #         # {"role": "system", "content": "Convert the following English text to katakana (Japanese phonetic characters). Write the English words using katakana characters to represent how they would sound when pronounced by Japanese speakers. Respond only with the katakana text."},
+    #         {"role": "user", "content": text}
+    #     ]
+    # )
+    # japanese_text = translation_response.choices[0].message.content.strip()
+    speech_file_path = Path(__file__).parent / "tmp" / "speech.wav"
+
+    with client.audio.speech.with_streaming_response.create(
+        model="gpt-4o-mini-tts",
+        voice="marin",
+        input=text,
+        instructions="Add a gentle breathiness to the voice so that the air is audible between words. Avoid sharp or exaggerated consonants; instead, let them blend smoothly into vowels."
+    ) as response:
+        response.stream_to_file(speech_file_path)
+
+    return speech_file_path
+
+def play_audio(audio_path):
+    """Play audio file using pygame"""
+    pygame.mixer.music.load(audio_path)
+    pygame.mixer.music.play()
     
-    # Start pipe listener immediately (this will unblock C bridge)
-    print("Starting pipe listener - C bridge can now connect")
-    listen_to_pipe()
+    # Wait for playback to finish
+    while pygame.mixer.music.get_busy():
+        pygame.time.wait(100)
+
+def cleanup_tmp_files():
+    """Delete all wav files in tmp directory"""
+    try:
+        tmp_dir = Path(__file__).parent / "tmp"
+        wav_files = glob.glob(str(tmp_dir / "*.wav"))
+        
+        for wav_file in wav_files:
+            try:
+                os.remove(wav_file)
+                pass
+            except Exception as e:
+                pass
+                
+    except Exception as e:
+        pass
+
+def test_timer():
+    while not shutdown_flag.wait(10):
+        uprint("TEST")
+        pass
+
+def main_loop():
+    """Main processing loop that handles input"""
+    while not shutdown_flag.is_set():
+        try:
+            line = input()
+            if line.strip() == "":
+                continue
+            if shutdown_flag.is_set():
+                break
+            
+            # Parse JSON input
+            try:
+                data = json.loads(line)
+                message_type = data.get("type")
+                payload = data.get("payload")
+                meta = data.get("meta")
+                
+                if message_type in ["frontend-audio-service", "backend-audio-service"]:
+                    # Process TTS request
+                    base_path = text_to_speech(payload)
+                    
+                    dubbed_path = convert_audio(base_path)
+                        
+                    play_audio(dubbed_path)
+                    cleanup_tmp_files()
+                    
+            except json.JSONDecodeError:
+                # Send error response for invalid JSON
+                uprint("Received nvalid json")
+                
+        except EOFError:
+            break
+        except KeyboardInterrupt:
+            break
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals"""
+    shutdown_flag.set()
+
+if __name__ == "__main__":
+    # Set up signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    if initialize_rvc() == False:
+        sys.stderr.write("Error: Could not initialize RVC\n")
+        sys.exit(1)
+    
+    # WE NEED THIS
+    uprint("ready")
     
     
+    # Start test timer in daemon thread
+    test_thread = threading.Thread(target=test_timer, daemon=True)
+    test_thread.start()
+    
+    # Start main loop in separate thread
+    main_thread = threading.Thread(target=main_loop, daemon=True)
+    main_thread.start()
+    
+    # Main thread stays alive to handle signals
+    try:
+        while not shutdown_flag.is_set():
+            shutdown_flag.wait(1)
+    except KeyboardInterrupt:
+        shutdown_flag.set()
+    
+    # Graceful shutdown
+    exit(0)
+
+

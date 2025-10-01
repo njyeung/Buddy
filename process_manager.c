@@ -26,13 +26,6 @@ pid_t frontend_server_pid = 0;
 pid_t audio_service_pid = 0;
 pid_t python_backend_pid = 0;
 
-// Audio service pipe handles
-#ifdef _WIN32
-HANDLE audio_pipe = INVALID_HANDLE_VALUE;
-#else
-int audio_write_fd = -1;
-#endif
-
 void cleanup_servers() {
     printf("\nCleaning up servers...\n");
     
@@ -57,11 +50,6 @@ void cleanup_servers() {
         python_backend_pid = 0;
     }
     
-    // Close Windows audio pipe
-    if (audio_pipe != INVALID_HANDLE_VALUE) {
-        CloseHandle(audio_pipe);
-        audio_pipe = INVALID_HANDLE_VALUE;
-    }
     
     // Fallback: kill processes by port  
     system("for /f \"tokens=5\" %a in ('netstat -aon ^| find \":8081\"') do taskkill /f /pid %a 2>nul");
@@ -105,14 +93,6 @@ void cleanup_servers() {
     system("pkill -f 'python.*backend.*main.py' 2>/dev/null");
     system("pkill -f 'python.*http.server.*8080' 2>/dev/null");
     
-    // Close audio pipe
-    if (audio_write_fd != -1) {
-        close(audio_write_fd);
-        audio_write_fd = -1;
-    }
-    
-    // Clean up named pipe
-    unlink("/tmp/buddy_to_audio");
     
     printf("All processes cleaned up\n");
     #endif
@@ -191,8 +171,8 @@ int build_frontend() {
     return 0;
 }
 
-int setup_python_venv() {
-    printf("Checking Python virtual environment\n");
+int setup_python_venv_backend() {
+    printf("Checking Backend Python virtual environment\n");
 
     #ifdef _WIN32
     struct stat st;
@@ -248,145 +228,60 @@ int setup_python_venv() {
     return 0;
 }
 
-int start_audio_service() {
-    printf("Checking audio service virtual environment\n");
-    
+int setup_python_venv_audio() {
+    printf("Checking Audio Service Python virtual environment\n");
+
     #ifdef _WIN32
-    // Check if audio-service directory exists
     struct stat st;
-    if (stat("audio-service", &st) != 0) {
-        printf("Audio service directory not found\n");
-        exit(1);
-    }
-    
-    // Check if venv exists, create if not
     if (stat("audio-service\\venv", &st) != 0) {
         printf("Audio service virtual environment not found. Creating venv\n");
-        
+
         int err = system("cd audio-service && python -m venv venv");
         if (err != 0) {
-            printf("Could not create audio service venv\n");
-            exit(1);
+            printf("Failed to create audio service virtual environment\n");
+            return err;
         }
         printf("Audio service virtual environment created\n");
     }
-    
-    printf("Installing/updating audio service dependencies\n");
-    int err = system("cd audio-service && call venv\\Scripts\\activate && pip install -r requirements.txt");
-    if (err != 0) {
-        printf("Could not install audio service dependencies\n");
-        exit(1);
+    printf("Installing/updating audio service dependencies...\n");
+
+    int pip_err = system("cd audio-service && call venv\\Scripts\\activate && pip install -r requirements.txt");
+    if (pip_err != 0) {
+        printf("Failed to install audio service dependencies\n");
+        return pip_err;
     }
-    
-    printf("Audio service environment ready. Starting audio service\n");
-    
-    // Use CreateProcess to track audio service PID
-    STARTUPINFO si_audio = {sizeof(si_audio)};
-    PROCESS_INFORMATION pi_audio;
-    char audio_cmd[] = "cmd /C \"cd audio-service && call venv\\Scripts\\activate && python main.py\"";
-    
-    if (!CreateProcess(NULL, audio_cmd, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si_audio, &pi_audio)) {
-        fprintf(stderr, "CreateProcess failed for audio service: %lu\n", GetLastError());
-        exit(1);
-    }
-    
-    // Store audio service PID for cleanup
-    audio_service_pid = pi_audio.dwProcessId;
-    
-    // Close handles we don't need
-    CloseHandle(pi_audio.hProcess);
-    CloseHandle(pi_audio.hThread);
-    
-    Sleep(2000);
+
+    printf("Audio service dependencies installed. Waiting for environment to stabilize...\n");
+    Sleep(1000); // 1 second delay
+
     #else
-    // Check if audio-service directory exists  
+
     struct stat st;
-    if (stat("audio-service", &st) != 0) {
-        printf("Audio service directory not found\n");
-        exit(1);
-    }
-    
-    // Check if venv exists, create if not
     if (stat("audio-service/venv", &st) != 0) {
         printf("Audio service virtual environment not found. Creating venv\n");
-        
+
         int err = system("cd audio-service && python3 -m venv venv");
         if (err != 0) {
-            printf("Could not create audio service venv\n");
-            exit(1);
+            printf("Failed to create audio service virtual environment\n");
+            return err;
         }
+        
         printf("Audio service virtual environment created\n");
     }
-    
     printf("Installing/updating audio service dependencies\n");
-    int err = system("cd audio-service && source venv/bin/activate && pip install -r requirements.txt");
-    if (err != 0) {
-        printf("Could not install audio service dependencies\n");
-        exit(1);
+
+    int pip_err = system("cd audio-service && source venv/bin/activate && pip install -r requirements.txt");
+    if (pip_err != 0) {
+        printf("Failed to install audio service dependencies\n");
+        return pip_err;
     }
-    
-    printf("Audio service environment ready. Starting audio service\n");
-    
-    // Create pipe to capture audio service output
-    int pipefd[2];
-    if (pipe(pipefd) == -1) {
-        perror("Failed to create pipe for audio service");
-        exit(1);
-    }
-    
-    audio_service_pid = fork();
-    if (audio_service_pid == 0) {
-        // Child process
-        close(pipefd[0]); // Close read end
-        dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to pipe
-        dup2(pipefd[1], STDERR_FILENO); // Redirect stderr to pipe
-        close(pipefd[1]);
-        
-        chdir("audio-service");
-        execlp("bash", "bash", "-c", "source venv/bin/activate && python3 main.py", NULL);
-        perror("exec failed for audio service");
-        exit(1);
-    } else if (audio_service_pid < 0) {
-        perror("Fork failed for audio service");
-        exit(1);
-    }
-    
-    // Parent process - wait for "AUDIO_SERVICE_READY" message
-    close(pipefd[1]); // Close write end
-    
-    FILE *audio_output = fdopen(pipefd[0], "r");
-    if (!audio_output) {
-        perror("Failed to open audio service output stream");
-        exit(1);
-    }
-    
-    printf("Waiting for audio service to initialize...\n");
-    char line[1024];
-    int ready = 0;
-    
-    while (fgets(line, sizeof(line), audio_output)) {
-        printf("[AUDIO] %s", line); // Forward audio service logs
-        
-        if (strstr(line, "AUDIO_SERVICE_READY")) {
-            ready = 1;
-            break;
-        }
-        
-        if (strstr(line, "AUDIO_SERVICE_FAILED")) {
-            printf("Audio service initialization failed\n");
-            fclose(audio_output);
-            exit(1);
-        }
-    }
-    
-    fclose(audio_output);
-    
-    if (!ready) {
-        printf("Audio service failed to start properly\n");
-        exit(1);
-    }
+
+    printf("Audio service dependencies installed. Waiting for environment to stabilize...\n");
+    sleep(1); // 1 second delay
     #endif
-    
-    printf("Audio service started on port 8081\n");
+
+    printf("Audio service Python environment ready\n");
+
     return 0;
 }
+

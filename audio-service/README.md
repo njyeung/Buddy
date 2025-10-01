@@ -1,182 +1,74 @@
-# Audio Service - TTS + RVC Voice Conversion
+# RVC Audio Service
 
-A standalone HTTP service that provides text-to-speech with voice conversion using RVC (Retrieval-based Voice Conversion).
+Fast voice conversion service using RVC (Retrieval-based Voice Conversion).
 
-## Features
+## Quick Start for New Models
 
-- Text-to-Speech using OpenAI API
-- Voice conversion using pre-trained RVC models
-- HTTP streaming of audio responses
-- RESTful API for easy integration
-- Automatic model discovery and loading
+1. **Drag and drop** your RVC training checkpoint (`G_*.pth`) into this directory
+2. **Run** `python main.py` - it will auto-convert and use your model
+3. **Done!** Your voice model is ready for fast inference
 
-## Architecture
+## Files
 
-```
-Text Input → OpenAI TTS (neutral voice) → RVC Voice Conversion → Custom Voice Output
-```
-
-## Setup
-
-1. **Create virtual environment and install dependencies:**
-   ```bash
-   cd audio-service
-   python -m venv venv
-   
-   # Windows
-   venv\Scripts\activate
-   pip install -r requirements.txt
-   
-   # Linux/Mac  
-   source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-2. **Environment configuration:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your OpenAI API key
-   ```
+- `main.py` - Main audio service script with auto-conversion
+- `convert_checkpoint.py` - Manual checkpoint conversion script
+- `model.pth` - RVC model (converted from training checkpoint)
+- `rmvpe.pt` - RMVPE F0 extraction model
+- `requirements.txt` - Python dependencies
+- `venv/` - Python virtual environment
+- `assets/` - HuBERT and RMVPE model files
+- `infer/` - RVC inference modules
+- `configs/` - RVC configuration files
+- `i18n/` - Internationalization files
 
 ## Usage
 
-1. **Start the service:**
-   ```bash
-   python main.py
-   ```
-   Service runs on `http://localhost:8081`
+```bash
+# Activate virtual environment
+source venv/bin/activate
 
-2. **Check available voices:**
-   ```bash
-   curl http://localhost:8081/api/voices
-   ```
+# Option 1: Use existing model.pth
+python main.py
 
-3. **Generate voice audio:**
-   ```bash
-   curl -X POST http://localhost:8081/api/tts-rvc \
-     -H "Content-Type: application/json" \
-     -d '{"text": "Hello world", "voice": "zutomayo"}' \
-     --output audio.mp3
-   ```
+# Option 2: Drag your RVC training checkpoint (G_*.pth) into this directory
+# main.py will auto-convert it to model.pth
 
-## API Endpoints
+# Option 3: Manual conversion
+python convert_checkpoint.py G_12345.pth
+python convert_checkpoint.py G_12345.pth --output my_model.pth
 
-### `GET /api/health`
-Health check and service status.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "service": "audio-service", 
-  "rvc_initialized": true,
-  "available_voices": ["zutomayo", "kiki", "keruan"]
-}
+# Test mode
+python main.py --test
 ```
 
-### `GET /api/voices`
-List available voice models.
+## Features
 
-**Response:**
-```json
-{
-  "voices": ["zutomayo", "kiki", "keruan"],
-  "default_voice": "zutomayo"
-}
+- **Fast processing**: ~5-6 seconds for 3+ minute audio
+- **Accurate timing**: Automatically stretches output to match input duration
+- **Any input format**: Accepts any audio format via ffmpeg normalization
+- **Auto-conversion**: Drag and drop training checkpoints for instant setup
+- **Pipe interface**: Listens on `/tmp/buddy_to_audio` for TTS commands
+- **RMVPE F0 extraction**: Fast and high-quality pitch detection
+
+## Performance
+
+- Input normalization: ffmpeg → 16kHz mono
+- F0 extraction: ~2s (RMVPE)
+- Voice conversion: ~3s
+- Output stretching: ~1s (if needed)
+- **Total**: ~5-6 seconds
+
+## Integration
+
+Designed to replace slow TTS with fast voice conversion. Listens for commands like:
+```
+TTS:Hello world
 ```
 
-### `POST /api/tts-rvc`
-Generate speech with voice conversion.
+Outputs converted audio and plays it automatically.
 
-**Request:**
-```json
-{
-  "text": "Hello world, this is a test",
-  "voice": "zutomayo"
-}
-```
+## Attribution
 
-**Response:** 
-- Content-Type: `audio/mpeg`
-- Binary MP3 audio data
+This project uses [RVC (Retrieval-based Voice Conversion)](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) for voice conversion inference. RVC is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### `POST /api/cleanup`
-Clean up temporary audio files.
-
-**Response:**
-```json
-{
-  "message": "Cleaned up 5 temporary files"
-}
-```
-
-## Integration with React Frontend
-
-```javascript
-// Example React integration
-const generateVoiceAudio = async (text, voice) => {
-  try {
-    const response = await fetch('http://localhost:8081/api/tts-rvc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const audioBlob = await response.blob();
-    const audioUrl = URL.createObjectURL(audioBlob);
-    
-    // Play audio
-    const audio = new Audio(audioUrl);
-    await audio.play();
-    
-    return audioUrl;
-  } catch (error) {
-    console.error('Voice generation failed:', error);
-    throw error;
-  }
-};
-
-// Usage
-await generateVoiceAudio("Hello from Zutomayo!", "zutomayo");
-```
-
-## Error Handling
-
-The service returns appropriate HTTP status codes:
-
-- `200`: Success
-- `400`: Bad request (missing text, invalid voice)
-- `500`: Internal error (TTS/RVC processing failed)
-
-Error responses include details:
-```json
-{
-  "error": "Voice 'invalid' not available",
-  "available_voices": ["zutomayo", "kiki", "keruan"]
-}
-```
-
-## Performance Notes
-
-- First request may be slower (model loading)
-- Subsequent requests with the same voice are faster (model caching)
-- Audio files are temporarily cached in `temp/` directory
-- Use `/api/cleanup` to clear temp files periodically
-
-## Troubleshooting
-
-**"RVC modules not found":**
-- Ensure `../RVC1006Nvidia/` directory exists
-- Check that RVC dependencies are installed
-
-**"No voice models found":**
-- Verify models exist in `../RVC1006Nvidia/logs/`
-- Each model needs: `G_*.pth` and `config.json`
-
-**"OpenAI API key not set":**
-- Set `OPENAI_API_KEY` in `.env` file
-- Ensure the API key has TTS permissions
+**RVC Copyright**: Copyright (c) 2023 liujing04, 源文雨, Ftps

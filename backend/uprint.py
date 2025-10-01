@@ -17,6 +17,9 @@ class OutGoingDataType(str, Enum):
     # if a chat id was passed in. 
     NEW_CHAT = "new-chat" # payload: id of new chat
     RETURN_CHAT_MESSAGES = "return-chat-messages" # payload: all messages of the new chat
+    
+    # Audio service types
+    BACKEND_AUDIO_SERVICE = "backend-audio-service" # request from backend to audio service
 
 def uprint(msg: str, msg_type=OutGoingDataType.MESSAGE, meta=None):
     if msg == None:
