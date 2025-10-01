@@ -39,9 +39,3 @@ audio-service/G_*.pth
 # Compressed archives
 *.7z
 RVC1006Nvidia/
-
-# Large video files
-*.webm
-*.mp4
-*.avi
-*.mov
