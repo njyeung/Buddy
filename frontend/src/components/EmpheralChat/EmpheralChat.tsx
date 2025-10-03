@@ -27,6 +27,8 @@ export default function EmpheralChat({sendData}: {sendData: (type: OutgoingDataT
       const { type, payload } = customEvent.detail;
 
       if (type === "empheral-response" && isWaitingForResponse) {
+        sendData("frontend-audio-service", payload)
+
         setMessages((prev) => [
           ...prev,
           { type: "assistant-message", payload }
