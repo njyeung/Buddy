@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import type { OutgoingDataType, IncomingData, OutgoingData } from "../../interface";
 import Message from "../ChatBox/Message";
 import Input from "../ChatBox/Input";
+import EmpheralInput from "./EmpheralInput";
+import EmpheralMessage from "./EmpheralMessage";
 
 interface EmpheralMessage {
   type: "user-message" | "assistant-message";
@@ -24,7 +26,7 @@ export default function EmpheralChat({sendData}: {sendData: (type: OutgoingDataT
       const customEvent = e as CustomEvent<IncomingData>;
       const { type, payload } = customEvent.detail;
 
-      if (type === "assistant-message" && isWaitingForResponse) {
+      if (type === "empheral-response" && isWaitingForResponse) {
         setMessages((prev) => [
           ...prev,
           { type: "assistant-message", payload }
@@ -56,13 +58,13 @@ export default function EmpheralChat({sendData}: {sendData: (type: OutgoingDataT
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-primary-300 relative">
+    <div className="w-full h-full flex flex-col bg-gradient-to-bl from-[#e2c3dc] to-[#d34898] relative">
       {/* Header */}
       <div className="flex justify-between items-center p-3 border-b border-secondary">
-        <h2 className="text-white font-medium">Ephemeral Chat</h2>
+        <h2 className="text-[#343131] font-bold">ACA Chat</h2>
         <button
           onClick={clearChat}
-          className="text-xs text-primary-100 hover:text-white transition px-2 py-1 rounded hover:bg-primary-200"
+          className="text-xs hover:cursor-pointer text-[#343131] hover:text-white transition px-2 py-1 rounded hover:bg-[#302540]"
         >
           Clear
         </button>
@@ -71,19 +73,19 @@ export default function EmpheralChat({sendData}: {sendData: (type: OutgoingDataT
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
-          <div className="text-center text-primary-100 mt-8">
+          <div className="text-center text-[#343131] mt-8">
             <p className="text-lg mb-2">Ephemeral Chat</p>
             <p className="text-sm">Start a temporary conversation. Messages expire after an hour.</p>
           </div>
         ) : (
           messages.map((message, index) => (
-            <Message key={index} message={message as IncomingData | OutgoingData} />
+            <EmpheralMessage key={index} message={message as IncomingData | OutgoingData} />
           ))
         )}
         
         {isWaitingForResponse && (
           <div className="flex justify-start">
-            <div className="text-primary-100 italic">Assistant is thinking...</div>
+            <div className="text-white italic">Aca ne is thinking...</div>
           </div>
         )}
         
@@ -92,7 +94,7 @@ export default function EmpheralChat({sendData}: {sendData: (type: OutgoingDataT
 
       {/* Input */}
       <div className="border-t border-secondary">
-        <Input submitMessage={submitMessage} />
+        <EmpheralInput submitMessage={submitMessage} />
       </div>
     </div>
   );

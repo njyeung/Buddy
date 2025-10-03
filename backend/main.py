@@ -286,10 +286,28 @@ def handle_tool_calls(msg, chat_id):
 # Returns True if the type is handled, false otherwise
 def handle_types(type, payload, meta):
     match type:
+        case "empheral":
+            raw = json.loads(payload)
+            role_map = {
+                "user-message": "user",
+                "assistant-message": "assistant",
+                "system-message": "system"
+            }
+            messages = [{"role": role_map[item["type"]], "content": item["payload"]} for item in raw]
+
+            response = state.client.chat.completions.create(
+                model=MASTER_MODEL,
+                messages=messages
+            )
+
+            msg = response.choices[0].message.content
+
+            uprint(msg, OutGoingDataType.EMPHERAL_RESPONSE)
+
         case "audio-service-response":
             # Test to verify audio-service-response messages reach the backend
-            uprint(f"[DEBUG] Received audio-service-response in backend", OutGoingDataType.LOG)
-            
+            uprint(f"[DEBUG] Received audio-service-response", OutGoingDataType.LOG)
+
         case "switch-chat":
             # If payload is null, create a new chat and return the new state of chats
             if payload is None:

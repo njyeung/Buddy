@@ -4,6 +4,7 @@ from enum import Enum
 class OutGoingDataType(str, Enum):
     # outgoing audio service message
     AUDIO_SERVICE_RESPONSE = "audio-service-response"
+    LOG = "log"
 
 def uprint(msg: str, msg_type=OutGoingDataType.AUDIO_SERVICE_RESPONSE, meta=None):
     if msg == None:

@@ -142,7 +142,6 @@ def cleanup_tmp_files():
 
 def test_timer():
     while not shutdown_flag.wait(10):
-        uprint("TEST")
         pass
 
 def main_loop():
@@ -150,6 +149,8 @@ def main_loop():
     while not shutdown_flag.is_set():
         try:
             line = input()
+            line = line[1:-1]
+
             if line.strip() == "":
                 continue
             if shutdown_flag.is_set():
@@ -170,10 +171,8 @@ def main_loop():
                         
                     play_audio(dubbed_path)
                     cleanup_tmp_files()
-                    
-            except json.JSONDecodeError:
-                # Send error response for invalid JSON
-                uprint("Received nvalid json")
+            except Exception as e:
+                pass
                 
         except EOFError:
             break

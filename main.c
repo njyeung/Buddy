@@ -75,27 +75,24 @@ static void producer(const char *seq, const char *req, void *arg)
 {
     PipeHandles *pipes = (PipeHandles *)arg;
 
-    // Check if this is a frontend-audio-service request
-    if (strncmp(req, "{\"type\": \"frontend-audio-service\"", 33) == 0) {
-        printf("[AUDIO] Frontend message to audio service: %s\n", req);
-        
-        #ifdef _WIN32
-            DWORD written;
-            WriteFile(pipes->audioStdinWrite, req, strlen(req), &written, NULL);
-            WriteFile(pipes->audioStdinWrite, "\n", 1, &written, NULL);
-        #else
-            dprintf(pipes->audioStdinWrite, "%s\n", req);
-        #endif
-    } else {
-        // Regular backend message
-        #ifdef _WIN32
-            DWORD written;
-            WriteFile(pipes->backendStdinWrite, req, strlen(req), &written, NULL);
-            WriteFile(pipes->backendStdinWrite, "\n", 1, &written, NULL);
-        #else
-            dprintf(pipes->backendStdinWrite, "%s\n", req);
-        #endif
-    }
+    printf("%s\n", req);
+    // route to audio-service
+    #ifdef _WIN32
+        DWORD written;
+        WriteFile(pipes->audioStdinWrite, req, strlen(req), &written, NULL);
+        WriteFile(pipes->audioStdinWrite, "\n", 1, &written, NULL);
+    #else
+        dprintf(pipes->audioStdinWrite, "%s\n", req);
+    #endif
+
+    // route to backend
+    #ifdef _WIN32
+        DWORD written;
+        WriteFile(pipes->backendStdinWrite, req, strlen(req), &written, NULL);
+        WriteFile(pipes->backendStdinWrite, "\n", 1, &written, NULL);
+    #else
+        dprintf(pipes->backendStdinWrite, "%s\n", req);
+    #endif
 }
 
 

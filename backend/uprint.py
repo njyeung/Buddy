@@ -21,6 +21,8 @@ class OutGoingDataType(str, Enum):
     # Audio service types
     BACKEND_AUDIO_SERVICE = "backend-audio-service" # request from backend to audio service
 
+    EMPHERAL_RESPONSE = "empheral-response" # response to empheral thread
+    
 def uprint(msg: str, msg_type=OutGoingDataType.MESSAGE, meta=None):
     if msg == None:
         return

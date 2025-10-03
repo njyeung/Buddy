@@ -7,9 +7,10 @@
 // return-current-chat-id -> response to switch-chat
 // return-chat-messages -> response to switch-chat and get-chat-messages
 // audio-service-response -> response from audio service
+// empheral-response -> backend response to "empheral" message
 export type IncomingDataType = "assistant-message" | "assistant-function" |
 "tool-call" | "tool-return" | "return-all-chats" | "return-current-chat-id" | "prompt" |
-"return-chat-messages" | "audio-service-response";
+"return-chat-messages" | "audio-service-response" | "empheral-response";
 
 export interface IncomingData  {
   type: IncomingDataType
